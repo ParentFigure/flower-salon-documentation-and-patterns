@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import require_admin
+from app.api.dependencies import require_admin, require_client
 from app.db.session import get_db
 from app.models.bouquet import Bouquet
 from app.models.user import User
 from app.repositories.bouquet_repository import BouquetRepository
+from app.schemas.custom_bouquet import CustomBouquetCreate, CustomBouquetPreviewRead
+from app.services.custom_bouquet_service import (
+    CustomBouquetResourceNotFoundError,
+    CustomBouquetService,
+    CustomBouquetValidationError,
+    InsufficientFlowerStockError,
+)
 from app.schemas.bouquet import (
     BouquetCreate,
     BouquetFlowerRead,
@@ -75,6 +82,60 @@ def list_bouquets(
 ):
     bouquets = BouquetRepository(db).list_all(occasion_slug=occasion)
     return [_serialize_bouquet(bouquet) for bouquet in bouquets]
+
+
+@router.post("/custom", response_model=CustomBouquetPreviewRead)
+def preview_custom_bouquet(
+    payload: CustomBouquetCreate,
+    db: Session = Depends(get_db),
+    _client: User = Depends(require_client),
+):
+    service = CustomBouquetService(db)
+    try:
+        preview = service.preview(
+            name=payload.name,
+            flowers=[(item.flower_id, item.quantity) for item in payload.flowers],
+            packaging_id=payload.packaging_id,
+            greeting_card_text=payload.greeting_card_text,
+            occasion_ids=payload.occasion_ids,
+        )
+    except CustomBouquetResourceNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except CustomBouquetValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except InsufficientFlowerStockError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+    return CustomBouquetPreviewRead(
+        name=preview.bouquet.name,
+        description=preview.bouquet.description or "",
+        total_price=preview.bouquet.base_price,
+        is_custom=preview.bouquet.is_custom,
+        flowers=[
+            {
+                "flower_id": flower.flower_id,
+                "flower_name": flower.flower_name,
+                "quantity": flower.quantity,
+                "unit_price": flower.unit_price,
+            }
+            for flower in preview.flowers
+        ],
+        packaging_id=preview.packaging_id,
+        packaging_name=preview.packaging_name,
+        packaging_price=preview.packaging_price,
+        greeting_card_text=preview.greeting_card_text,
+        greeting_card_price=preview.greeting_card_price,
+        occasion_ids=preview.occasion_ids,
+    )
 
 
 @router.get("/{bouquet_id}", response_model=BouquetRead)
