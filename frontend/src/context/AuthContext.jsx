@@ -18,8 +18,12 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const currentUser = await getCurrentUser();
-      setUser(currentUser);
-      return currentUser;
+      const normalizedUser = {
+        ...currentUser,
+        role: String(currentUser.role || "").toUpperCase(),
+      };
+      setUser(normalizedUser);
+      return normalizedUser;
     } catch {
       setAccessToken(null);
       setUser(null);

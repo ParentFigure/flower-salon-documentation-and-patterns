@@ -6,7 +6,7 @@ function navClass({ isActive }) {
 }
 
 export default function Layout() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isClient, logout } = useAuth();
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -20,6 +20,7 @@ export default function Layout() {
         <NavLink className="brand" to="/">Bloom Network</NavLink>
         <nav className="site-nav" aria-label="Головна навігація">
           <NavLink className={navClass} to="/catalog">Каталог</NavLink>
+          {isClient && <NavLink className={navClass} to="/builder">Свій букет</NavLink>}
           {user && <NavLink className={navClass} to="/profile">Кабінет</NavLink>}
           {isAdmin && <NavLink className={navClass} to="/admin">Адмін</NavLink>}
           {!user ? (
