@@ -17,7 +17,7 @@ from app.api.routes import (
 
 app = FastAPI(
     title="Flower Salon Network API",
-    version="0.1.0",
+    version="1.0.0",
 )
 
 app.include_router(health.router)

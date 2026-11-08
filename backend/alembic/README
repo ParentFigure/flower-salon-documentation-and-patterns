@@ -1,0 +1,11 @@
+Alembic migration environment for Flower Salon Network.
+
+Commands are executed from the `backend` directory:
+
+    alembic upgrade head
+    alembic current
+    alembic history
+    alembic check
+
+The database URL is read from the same application settings as FastAPI
+(`DATABASE_URL`). The initial revision creates the complete current schema.
