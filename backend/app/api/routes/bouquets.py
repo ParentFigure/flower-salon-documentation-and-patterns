@@ -1,12 +1,36 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.db.session import get_db
 from app.models.bouquet import Bouquet
-from app.schemas.bouquet import BouquetRead
+from app.repositories.bouquet_repository import BouquetRepository
+from app.schemas.bouquet import BouquetCreate, BouquetRead
 
 router = APIRouter(prefix="/bouquets", tags=["bouquets"])
 
+
 @router.get("", response_model=list[BouquetRead])
 def list_bouquets(db: Session = Depends(get_db)):
-    return db.scalars(select(Bouquet)).all()
+    repository = BouquetRepository(db)
+    return repository.list_all()
+
+
+@router.get("/{bouquet_id}", response_model=BouquetRead)
+def get_bouquet(bouquet_id: int, db: Session = Depends(get_db)):
+    repository = BouquetRepository(db)
+    bouquet = repository.get_by_id(bouquet_id)
+
+    if bouquet is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bouquet not found",
+        )
+
+    return bouquet
+
+
+@router.post("", response_model=BouquetRead, status_code=status.HTTP_201_CREATED)
+def create_bouquet(payload: BouquetCreate, db: Session = Depends(get_db)):
+    repository = BouquetRepository(db)
+    bouquet = Bouquet(**payload.model_dump())
+    return repository.create(bouquet)
