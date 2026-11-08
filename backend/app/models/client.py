@@ -25,3 +25,8 @@ class Client(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="client",
+        cascade="all, delete-orphan",
+        order_by="Notification.created_at.desc()",
+    )
