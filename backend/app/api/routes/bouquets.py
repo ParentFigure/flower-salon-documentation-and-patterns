@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import require_admin
 from app.db.session import get_db
 from app.models.bouquet import Bouquet
+from app.models.user import User
 from app.repositories.bouquet_repository import BouquetRepository
 from app.schemas.bouquet import BouquetCreate, BouquetRead
 
@@ -30,7 +32,11 @@ def get_bouquet(bouquet_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=BouquetRead, status_code=status.HTTP_201_CREATED)
-def create_bouquet(payload: BouquetCreate, db: Session = Depends(get_db)):
+def create_bouquet(
+    payload: BouquetCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
     repository = BouquetRepository(db)
     bouquet = Bouquet(**payload.model_dump())
     return repository.create(bouquet)

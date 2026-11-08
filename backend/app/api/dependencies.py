@@ -61,3 +61,19 @@ def require_client(current_user: User = Depends(get_current_user)) -> User:
             detail="Client role required",
         )
     return current_user
+
+
+def ensure_client_access(current_user: User, client_id: int) -> None:
+    """Allow administrators or the client who owns the requested resource."""
+    if current_user.role == UserRole.ADMIN:
+        return
+
+    if (
+        current_user.role != UserRole.CLIENT
+        or current_user.client is None
+        or current_user.client.id != client_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access to another client's data is forbidden",
+        )

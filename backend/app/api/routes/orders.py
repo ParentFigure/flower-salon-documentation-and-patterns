@@ -3,10 +3,12 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import ensure_client_access, get_current_user, require_admin, require_client
 from app.db.session import get_db
 from app.models.client import Client
 from app.models.order import OrderStatus
 from app.models.order_item import OrderItem
+from app.models.user import User
 from app.patterns.state.order_state import InvalidOrderStateTransition
 from app.patterns.strategy.delivery import (
     CourierDelivery,
@@ -87,7 +89,13 @@ def _order_service(db: Session) -> OrderService:
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
-def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
+def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_client),
+):
+    ensure_client_access(current_user, payload.client_id)
+
     if db.get(Client, payload.client_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -131,7 +139,13 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/client/{client_id}", response_model=list[OrderRead])
-def list_client_orders(client_id: int, db: Session = Depends(get_db)):
+def list_client_orders(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ensure_client_access(current_user, client_id)
+
     if db.get(Client, client_id) is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,9 +162,15 @@ def list_client_orders(client_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{order_id}", response_model=OrderRead)
-def get_order(order_id: int, db: Session = Depends(get_db)):
+def get_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     try:
-        return _order_service(db).get_order(order_id)
+        order = _order_service(db).get_order(order_id)
+        ensure_client_access(current_user, order.client_id)
+        return order
     except OrderNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -163,6 +183,7 @@ def update_order_status(
     order_id: int,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
     service = _order_service(db)
 

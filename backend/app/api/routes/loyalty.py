@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.dependencies import ensure_client_access, get_current_user, require_admin
 from app.db.session import get_db
+from app.models.user import User
 from app.repositories.loyalty_card_repository import LoyaltyCardRepository
 from app.repositories.notification_repository import NotificationRepository
 from app.schemas.loyalty import (
@@ -35,7 +37,11 @@ def _not_found(exc: LookupError) -> HTTPException:
 
 
 @router.post("/cards", response_model=LoyaltyCardRead, status_code=status.HTTP_201_CREATED)
-def issue_card(payload: LoyaltyCardIssue, db: Session = Depends(get_db)):
+def issue_card(
+    payload: LoyaltyCardIssue,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
     try:
         return _service(db).issue_card(payload.client_id, payload.card_type)
     except ClientNotFoundError as exc:
@@ -53,7 +59,12 @@ def issue_card(payload: LoyaltyCardIssue, db: Session = Depends(get_db)):
 
 
 @router.get("/clients/{client_id}/card", response_model=LoyaltyCardRead)
-def get_card(client_id: int, db: Session = Depends(get_db)):
+def get_card(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ensure_client_access(current_user, client_id)
     try:
         return _service(db).get_card(client_id)
     except LoyaltyCardNotFoundError as exc:
@@ -66,7 +77,12 @@ def get_card(client_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/clients/{client_id}/balance", response_model=BonusBalanceRead)
-def get_bonus_balance(client_id: int, db: Session = Depends(get_db)):
+def get_bonus_balance(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ensure_client_access(current_user, client_id)
     try:
         card = _service(db).get_card(client_id)
         return BonusBalanceRead(
@@ -87,6 +103,7 @@ def accrue_bonus(
     client_id: int,
     payload: BonusAmount,
     db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
 ):
     try:
         return _service(db).accrue_bonus(client_id, payload.amount)
@@ -104,7 +121,9 @@ def spend_bonus(
     client_id: int,
     payload: BonusAmount,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
+    ensure_client_access(current_user, client_id)
     try:
         return _service(db).spend_bonus(client_id, payload.amount)
     except LoyaltyCardNotFoundError as exc:
