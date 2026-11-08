@@ -171,3 +171,117 @@ def test_client_cannot_create_bouquet():
         assert response.json()["detail"] == "Administrator role required"
 
     app.dependency_overrides.clear()
+
+
+def test_admin_can_update_bouquet():
+    client, SessionLocal = make_client()
+    headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with client:
+        created = client.post(
+            "/api/bouquets",
+            headers=headers,
+            json={"name": "Old Name", "base_price": "500.00", "is_custom": False},
+        ).json()
+
+        response = client.put(
+            f"/api/bouquets/{created['id']}",
+            headers=headers,
+            json={
+                "name": "Updated Bouquet",
+                "description": "Updated description",
+                "base_price": "650.00",
+                "is_custom": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["name"] == "Updated Bouquet"
+        assert Decimal(str(data["base_price"])) == Decimal("650.00")
+        assert data["is_custom"] is True
+
+    app.dependency_overrides.clear()
+
+
+def test_client_cannot_update_bouquet():
+    client, SessionLocal = make_client()
+    admin_headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with client:
+        created = client.post(
+            "/api/bouquets",
+            headers=admin_headers,
+            json={"name": "Protected Bouquet", "base_price": "500.00", "is_custom": False},
+        ).json()
+
+        with SessionLocal() as db:
+            client_user = User(
+                email="bouquet-client-update@example.com",
+                password_hash="hashed-password",
+                role=UserRole.CLIENT,
+            )
+            db.add(client_user)
+            db.commit()
+            client_headers = {
+                "Authorization": f"Bearer {create_access_token(client_user.id, client_user.role.value)}"
+            }
+
+        response = client.put(
+            f"/api/bouquets/{created['id']}",
+            headers=client_headers,
+            json={"name": "Nope", "base_price": "700.00", "is_custom": False},
+        )
+        assert response.status_code == 403
+
+    app.dependency_overrides.clear()
+
+
+def test_admin_can_delete_bouquet():
+    client, SessionLocal = make_client()
+    headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with client:
+        created = client.post(
+            "/api/bouquets",
+            headers=headers,
+            json={"name": "Temporary Bouquet", "base_price": "400.00", "is_custom": False},
+        ).json()
+
+        response = client.delete(f"/api/bouquets/{created['id']}", headers=headers)
+        assert response.status_code == 204
+        assert client.get(f"/api/bouquets/{created['id']}").status_code == 404
+
+    app.dependency_overrides.clear()
+
+
+def test_delete_bouquet_requires_admin_authentication():
+    client, SessionLocal = make_client()
+    admin_headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with client:
+        created = client.post(
+            "/api/bouquets",
+            headers=admin_headers,
+            json={"name": "Protected Delete", "base_price": "400.00", "is_custom": False},
+        ).json()
+        response = client.delete(f"/api/bouquets/{created['id']}")
+        assert response.status_code == 401
+
+    app.dependency_overrides.clear()
+
+
+def test_update_missing_bouquet_returns_404_for_admin():
+    client, SessionLocal = make_client()
+    headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with client:
+        response = client.put(
+            "/api/bouquets/999",
+            headers=headers,
+            json={"name": "Missing", "base_price": "400.00", "is_custom": False},
+        )
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Bouquet not found"
+
+    app.dependency_overrides.clear()

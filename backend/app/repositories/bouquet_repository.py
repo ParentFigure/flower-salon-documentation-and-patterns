@@ -22,3 +22,14 @@ class BouquetRepository:
         self.db.commit()
         self.db.refresh(bouquet)
         return bouquet
+
+    def update(self, bouquet: Bouquet, **changes) -> Bouquet:
+        for field, value in changes.items():
+            setattr(bouquet, field, value)
+        self.db.commit()
+        self.db.refresh(bouquet)
+        return bouquet
+
+    def delete(self, bouquet: Bouquet) -> None:
+        self.db.delete(bouquet)
+        self.db.commit()

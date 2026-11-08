@@ -10,6 +10,10 @@ class BouquetCreate(BaseModel):
     is_custom: bool = False
 
 
+class BouquetUpdate(BouquetCreate):
+    pass
+
+
 class BouquetRead(BaseModel):
     id: int
     name: str
