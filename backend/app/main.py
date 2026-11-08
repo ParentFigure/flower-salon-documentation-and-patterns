@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api.routes import bouquets, health, orders
+from app.api.routes import bouquets, health, loyalty, orders
 
 app = FastAPI(
     title="Flower Salon Network API",
@@ -10,3 +10,4 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(bouquets.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
+app.include_router(loyalty.router, prefix="/api")
