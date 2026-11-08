@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import AdminPage from "./pages/AdminPage";
 import CatalogPage from "./pages/CatalogPage";
+import CheckoutPage from "./pages/CheckoutPage";
 import CustomBouquetPage from "./pages/CustomBouquetPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
@@ -23,6 +24,7 @@ export default function App() {
             <Route index element={<HomePage />} />
             <Route path="catalog" element={<CatalogPage />} />
             <Route path="builder" element={<ClientRoute><CustomBouquetPage /></ClientRoute>} />
+            <Route path="checkout" element={<ClientRoute><CheckoutPage /></ClientRoute>} />
             <Route path="login" element={<GuestRoute><LoginPage /></GuestRoute>} />
             <Route path="register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
             <Route path="profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

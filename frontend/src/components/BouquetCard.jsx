@@ -1,3 +1,7 @@
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { saveCheckoutDraft } from "../utils/checkoutDraft";
+
 function formatPrice(value) {
   const amount = Number(value);
   if (!Number.isFinite(amount)) return value;
@@ -9,6 +13,23 @@ function formatPrice(value) {
 }
 
 export default function BouquetCard({ bouquet }) {
+  const navigate = useNavigate();
+  const { isAdmin } = useAuth();
+
+  function handleOrder() {
+    saveCheckoutDraft({
+      kind: "catalog",
+      quantity: 1,
+      bouquet: {
+        id: bouquet.id,
+        name: bouquet.name,
+        description: bouquet.description || null,
+        base_price: bouquet.base_price,
+      },
+    });
+    navigate("/checkout");
+  }
+
   return (
     <article className="bouquet-card">
       <div className="bouquet-card__visual" aria-hidden="true">
@@ -56,6 +77,12 @@ export default function BouquetCard({ bouquet }) {
             <p className="muted bouquet-card__empty">Склад не вказано.</p>
           )}
         </details>
+
+        {!isAdmin && (
+          <button className="button bouquet-card__order" type="button" onClick={handleOrder}>
+            Замовити
+          </button>
+        )}
       </div>
     </article>
   );

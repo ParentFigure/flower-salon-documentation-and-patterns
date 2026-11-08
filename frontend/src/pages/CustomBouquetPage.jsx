@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getBuilderOccasions,
   getFlowers,
   getPackagingOptions,
   previewCustomBouquet,
 } from "../api/customBouquet";
+import { saveCheckoutDraft } from "../utils/checkoutDraft";
 
 const GREETING_CARD_ESTIMATE = 25;
 
@@ -27,6 +29,7 @@ function normalizeApiError(error) {
 }
 
 export default function CustomBouquetPage() {
+  const navigate = useNavigate();
   const [flowers, setFlowers] = useState([]);
   const [packaging, setPackaging] = useState([]);
   const [occasions, setOccasions] = useState([]);
@@ -112,6 +115,31 @@ export default function CustomBouquetPage() {
         : [...current, id]
     ));
     invalidatePreview();
+  }
+
+  function handleCheckout() {
+    if (!preview) return;
+
+    saveCheckoutDraft({
+      kind: "custom",
+      quantity: 1,
+      custom_bouquet: {
+        name: name.trim(),
+        flowers: selectedFlowers.map((flower) => ({
+          flower_id: flower.id,
+          quantity: flower.quantity,
+        })),
+        packaging_id: packagingId ? Number(packagingId) : null,
+        greeting_card_text: greetingCardText.trim() || null,
+        occasion_ids: occasionIds,
+      },
+      preview: {
+        name: preview.name,
+        total_price: preview.total_price,
+        packaging_name: preview.packaging_name || null,
+      },
+    });
+    navigate("/checkout");
   }
 
   async function handlePreview(event) {
@@ -392,6 +420,11 @@ export default function CustomBouquetPage() {
             <button className="button builder-submit" disabled={submitting || selectedFlowers.length === 0} type="submit">
               {submitting ? "Перевіряємо…" : "Перевірити й розрахувати"}
             </button>
+            {preview && (
+              <button className="button secondary builder-checkout" type="button" onClick={handleCheckout}>
+                Перейти до оформлення
+              </button>
+            )}
             <p className="builder-server-note">
               Ціна справа до перевірки — орієнтовна. Для замовлення використовується лише сума, яку повернув сервер.
             </p>
