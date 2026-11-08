@@ -392,3 +392,32 @@ textarea { font: inherit; }
   .admin-order-items > div { align-items: flex-start; flex-direction: column; gap: 3px; }
   .admin-form-grid { grid-template-columns: 1fr; }
 }
+
+/* Final requirements pass: client notifications and full admin settings */
+.profile-quick-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: -8px 0 22px; }
+.profile-orders-panel { grid-column: 1; }
+.profile-notifications-panel { grid-column: 1; }
+.profile-contact-panel { grid-column: 2; grid-row: 1 / span 2; }
+.profile-notification-list { display: grid; gap: 10px; margin-top: 16px; }
+.profile-notification { display: flex; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid #d9dfd5; border-radius: 15px; background: #f7fbf5; }
+.profile-notification.is-read { border-color: #e6e1d9; background: #fff; opacity: .72; }
+.profile-notification strong { color: #344b37; }
+.profile-notification p { margin: 5px 0 7px; color: #60685f; line-height: 1.45; }
+.profile-notification small { color: #8a9088; }
+.profile-empty-state--compact { min-height: 130px; }
+
+.admin-form select { width: 100%; border: 1px solid #ccc7be; border-radius: 11px; padding: 10px 12px; background: #fff; color: #30372f; font: inherit; outline: 0; }
+.admin-form select:focus { border-color: #6f856d; box-shadow: 0 0 0 3px rgba(102,124,100,.12); }
+.admin-inline-check { display: flex !important; grid-template-columns: none !important; flex-direction: row; align-items: center; gap: 9px !important; }
+.admin-inline-check input { width: auto !important; accent-color: #344d38; }
+.admin-simple-list { display: grid; gap: 12px; }
+.admin-simple-card { padding: 18px; border: 1px solid #ddd8cf; border-radius: 18px; background: #fffdf9; }
+.admin-simple-card h3 { margin: 0 0 7px; font-family: Georgia, serif; color: #30372f; }
+.admin-simple-card .muted { margin: 0; line-height: 1.5; }
+.admin-actions--flush { margin-top: 0; }
+.admin-loyalty-card { min-height: 180px; display: grid; align-content: center; }
+
+@media (max-width: 800px) {
+  .profile-orders-panel, .profile-notifications-panel, .profile-contact-panel { grid-column: 1; grid-row: auto; }
+  .profile-notification { flex-direction: column; }
+}

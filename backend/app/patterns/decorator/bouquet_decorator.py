@@ -30,7 +30,7 @@ class BasicBouquet(BouquetComponent):
         self.bouquet = bouquet
 
     def get_description(self) -> str:
-        return self.bouquet.name
+        return self.bouquet.description or self.bouquet.name
 
     def get_price(self) -> Decimal:
         return _money(Decimal(self.bouquet.base_price))

@@ -26,6 +26,11 @@ class ClientRepository:
         )
         return self.db.scalar(statement)
 
+
+    def list_all(self) -> list[Client]:
+        statement = select(Client).order_by(Client.id.asc())
+        return list(self.db.scalars(statement).all())
+
     def save(self, client: Client) -> Client:
         self.db.add(client)
         self.db.commit()

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { getProfile, updateProfile } from "../api/profile";
+import {
+  getClientNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../api/notifications";
 
 const STATUS_LABELS = {
   created: "Створено",
@@ -9,6 +15,13 @@ const STATUS_LABELS = {
   delivering: "Доставляється",
   completed: "Завершено",
   cancelled: "Скасовано",
+};
+
+
+const NOTIFICATION_LABELS = {
+  order_ready: "Замовлення готове",
+  bonus_accrued: "Нараховано бонуси",
+  new_arrival: "Новинка каталогу",
 };
 
 const CARD_LABELS = {
@@ -72,6 +85,8 @@ export default function ProfilePage() {
   const [form, setForm] = useState({ full_name: "", phone: "" });
   const [success, setSuccess] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsBusy, setNotificationsBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -83,6 +98,9 @@ export default function ProfilePage() {
         const data = await getProfile();
         if (!active) return;
         setProfile(data);
+        const notificationData = await getClientNotifications(data.client_id);
+        if (!active) return;
+        setNotifications(notificationData);
         setForm({
           full_name: data.full_name || "",
           phone: data.phone || "",
@@ -130,6 +148,40 @@ export default function ProfilePage() {
     }
   }
 
+  async function markOneRead(notificationId) {
+    setNotificationsBusy(true);
+    setError("");
+    try {
+      const updated = await markNotificationRead(notificationId);
+      setNotifications((current) =>
+        current.map((item) => item.id === notificationId ? updated : item)
+      );
+      setProfile((current) => current ? {
+        ...current,
+        unread_notifications_count: Math.max(0, current.unread_notifications_count - 1),
+      } : current);
+    } catch (err) {
+      setError(err?.message || "Не вдалося позначити повідомлення прочитаним.");
+    } finally {
+      setNotificationsBusy(false);
+    }
+  }
+
+  async function markAllRead() {
+    if (!profile) return;
+    setNotificationsBusy(true);
+    setError("");
+    try {
+      await markAllNotificationsRead(profile.client_id);
+      setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
+      setProfile((current) => current ? { ...current, unread_notifications_count: 0 } : current);
+    } catch (err) {
+      setError(err?.message || "Не вдалося позначити повідомлення прочитаними.");
+    } finally {
+      setNotificationsBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="page-section profile-page">
@@ -174,6 +226,11 @@ export default function ProfilePage() {
         >
           {editing ? "Закрити" : "Редагувати профіль"}
         </button>
+      </div>
+
+      <div className="profile-quick-actions" aria-label="Швидкі дії клієнта">
+        <Link className="button" to="/catalog">Замовити готовий букет</Link>
+        <Link className="button secondary" to="/builder">Створити свій букет</Link>
       </div>
 
       {success && <p className="profile-success" role="status">{success}</p>}
@@ -276,6 +333,57 @@ export default function ProfilePage() {
             <div className="profile-empty-state">
               <strong>Замовлень ще немає</strong>
               <span>Після першого оформлення воно з’явиться тут.</span>
+            </div>
+          )}
+        </div>
+
+        <div className="profile-panel profile-notifications-panel">
+          <div className="profile-panel__heading">
+            <div>
+              <p className="eyebrow">Сповіщення</p>
+              <h2>Повідомлення</h2>
+            </div>
+            {profile.unread_notifications_count > 0 && (
+              <button
+                className="text-button"
+                type="button"
+                disabled={notificationsBusy}
+                onClick={markAllRead}
+              >
+                Прочитати всі
+              </button>
+            )}
+          </div>
+
+          {notifications.length ? (
+            <div className="profile-notification-list">
+              {notifications.map((notification) => (
+                <article
+                  className={notification.is_read ? "profile-notification is-read" : "profile-notification"}
+                  key={notification.id}
+                >
+                  <div>
+                    <strong>{NOTIFICATION_LABELS[notification.type] || "Повідомлення"}</strong>
+                    <p>{notification.message}</p>
+                    <small>{dateTime(notification.created_at)}</small>
+                  </div>
+                  {!notification.is_read && (
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={notificationsBusy}
+                      onClick={() => markOneRead(notification.id)}
+                    >
+                      Прочитано
+                    </button>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="profile-empty-state profile-empty-state--compact">
+              <strong>Повідомлень ще немає</strong>
+              <span>Новинки, готові замовлення та бонуси з’являться тут.</span>
             </div>
           )}
         </div>

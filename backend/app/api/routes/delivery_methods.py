@@ -55,6 +55,14 @@ def list_delivery_methods(db: Session = Depends(get_db)):
     return DeliveryMethodRepository(db).list_all(active_only=True)
 
 
+@router.get("/admin/all", response_model=list[DeliveryMethodRead])
+def list_all_for_admin(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return DeliveryMethodRepository(db).list_all(active_only=False)
+
+
 @router.get("/{method_id}", response_model=DeliveryMethodRead)
 def get_delivery_method(method_id: int, db: Session = Depends(get_db)):
     return _get_method_or_404(DeliveryMethodRepository(db), method_id)

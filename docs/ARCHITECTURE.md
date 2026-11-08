@@ -47,7 +47,7 @@ Custom bouquet не публікується в каталозі. Після о�
 
 ### Builder
 
-`CustomBouquetBuilder` покроково отримує квіти, упаковку та листівку, після чого створює custom `Bouquet`. `CustomBouquetService` перед Builder перевіряє існування ресурсів і stock.
+`CustomBouquetBuilder` покроково формує базовий custom `Bouquet` із вибраних квітів. `CustomBouquetService` перевіряє існування ресурсів і stock, а optional-опції після Builder додаються production-ланцюжком Decorator.
 
 ### Strategy
 
@@ -59,7 +59,7 @@ Custom bouquet не публікується в каталозі. Після о�
 
 ### Decorator
 
-`BouquetComponent` → `BasicBouquet` → `BouquetDecorator`. Реалізації `PackagingDecorator`, `RibbonDecorator`, `GreetingCardDecorator` додають поведінку й ціну без зміни базового об'єкта.
+`BouquetComponent` → `BasicBouquet` → `BouquetDecorator`. У production custom-bouquet flow `PackagingDecorator` та `GreetingCardDecorator` реально формують фінальну ціну й опис; `RibbonDecorator` демонструє таке саме розширення без зміни базового об'єкта.
 
 ### State
 
@@ -75,7 +75,7 @@ created -> confirmed -> preparing -> ready -> delivering -> completed
 
 ### Observer
 
-`NotificationPublisher` повідомляє підписаних observers. `PersistentNotificationObserver` записує події в `notifications`. Observer використовується, зокрема, коли замовлення готове та коли нараховані бонуси.
+`NotificationPublisher` повідомляє підписаних observers. `PersistentNotificationObserver` записує події в `notifications`. Observer використовується, коли замовлення готове, коли нараховані бонуси та коли адміністратор публікує новий готовий букет у каталозі. NEW_ARRIVAL подія зберігається для всіх клієнтів через `PersistentNotificationObserver`.
 
 ## 4. Loyalty
 
@@ -94,7 +94,7 @@ JWT формується після login. FastAPI dependencies перевіря
 
 - public: каталог та довідкові active-ресурси;
 - CLIENT: custom bouquet, checkout, власні orders/profile/notifications/loyalty;
-- ADMIN: CRUD каталогу та довідників, усі orders і зміна status.
+- ADMIN: CRUD каталогу та довідників, усі orders і зміна status, керування loyalty-картками та bonus balance.
 
 ## 6. Persistence and migrations
 
@@ -110,4 +110,6 @@ React використовує:
 - `GuestRoute`, `ProtectedRoute`, `ClientRoute`, `AdminRoute` для UI-level routing;
 - окремі API modules для HTTP-запитів;
 - `sessionStorage` для checkout draft;
-- FastAPI як єдине джерело бізнес-правил і остаточних цін.
+- FastAPI як єдине джерело бізнес-правил і остаточних цін;
+- `/profile` показує історію, loyalty і повний список persisted notifications з read/read-all діями;
+- `/admin` містить UI для orders, flowers, bouquets, packaging, occasions, salons, delivery methods та loyalty.

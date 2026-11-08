@@ -104,6 +104,8 @@ def test_client_can_preview_custom_bouquet_with_builder_price():
         assert data["occasion_ids"] == [birthday_id]
         assert "Rose x5" in data["description"]
         assert "Tulip x3" in data["description"]
+        assert "packaging: Gift box" in data["description"]
+        assert 'card: "Happy birthday!"' in data["description"]
         assert data["flowers"][0]["unit_price"] == "50.00"
 
     app.dependency_overrides.clear()

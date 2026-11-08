@@ -296,3 +296,45 @@ def test_loyalty_card_read_requires_authentication():
         assert response.status_code == 401
 
     app.dependency_overrides.clear()
+
+
+def test_admin_can_update_loyalty_card_type_and_active_state():
+    client, SessionLocal = make_client()
+    client_id, _ = seed_client(SessionLocal)
+    admin_id = seed_admin(SessionLocal)
+    admin_headers = headers_for(admin_id, UserRole.ADMIN)
+
+    with client:
+        assert issue_card(client, client_id, admin_headers, "bonus").status_code == 201
+        response = client.put(
+            f"/api/loyalty/clients/{client_id}/card",
+            headers=admin_headers,
+            json={"card_type": "gold", "is_active": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["card_type"] == "gold"
+        assert data["is_active"] is False
+        assert data["free_delivery"] is True
+        assert Decimal(str(data["discount_percent"])) == Decimal("10.00")
+
+    app.dependency_overrides.clear()
+
+
+def test_client_cannot_update_loyalty_card():
+    client, SessionLocal = make_client()
+    client_id, user_id = seed_client(SessionLocal)
+    admin_id = seed_admin(SessionLocal)
+    admin_headers = headers_for(admin_id, UserRole.ADMIN)
+
+    with client:
+        assert issue_card(client, client_id, admin_headers).status_code == 201
+        response = client.put(
+            f"/api/loyalty/clients/{client_id}/card",
+            headers=headers_for(user_id, UserRole.CLIENT),
+            json={"card_type": "social", "is_active": True},
+        )
+        assert response.status_code == 403
+
+    app.dependency_overrides.clear()

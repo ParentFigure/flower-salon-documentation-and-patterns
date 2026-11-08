@@ -11,6 +11,11 @@ class LoyaltyCardIssue(BaseModel):
     card_type: LoyaltyCardType = LoyaltyCardType.BONUS
 
 
+class LoyaltyCardUpdate(BaseModel):
+    card_type: LoyaltyCardType
+    is_active: bool = True
+
+
 class BonusAmount(BaseModel):
     amount: Decimal = Field(
         gt=0,

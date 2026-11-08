@@ -11,6 +11,7 @@ from app.schemas.loyalty import (
     BonusBalanceRead,
     LoyaltyCardIssue,
     LoyaltyCardRead,
+    LoyaltyCardUpdate,
 )
 from app.services.loyalty_service import (
     ClientNotFoundError,
@@ -67,6 +68,28 @@ def get_card(
     ensure_client_access(current_user, client_id)
     try:
         return _service(db).get_card(client_id)
+    except LoyaltyCardNotFoundError as exc:
+        raise _not_found(exc) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put("/clients/{client_id}/card", response_model=LoyaltyCardRead)
+def update_card(
+    client_id: int,
+    payload: LoyaltyCardUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    try:
+        return _service(db).update_card(
+            client_id,
+            payload.card_type,
+            is_active=payload.is_active,
+        )
     except LoyaltyCardNotFoundError as exc:
         raise _not_found(exc) from exc
     except ValueError as exc:

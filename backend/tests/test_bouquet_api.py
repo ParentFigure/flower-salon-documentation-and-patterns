@@ -12,7 +12,7 @@ from app.core.security import create_access_token
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import User, UserRole
+from app.models import Client, Notification, NotificationType, User, UserRole
 
 
 def make_client() -> tuple[TestClient, sessionmaker]:
@@ -283,5 +283,72 @@ def test_update_missing_bouquet_returns_404_for_admin():
         )
         assert response.status_code == 404
         assert response.json()["detail"] == "Bouquet not found"
+
+    app.dependency_overrides.clear()
+
+
+def test_creating_catalog_bouquet_broadcasts_new_arrival_to_all_clients():
+    client, SessionLocal = make_client()
+    admin_headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with SessionLocal() as db:
+        for index in range(2):
+            user = User(
+                email=f"arrival-client-{index}@example.com",
+                password_hash="hashed-password",
+                role=UserRole.CLIENT,
+            )
+            db.add(user)
+            db.flush()
+            db.add(Client(user_id=user.id, full_name=f"Client {index}"))
+        db.commit()
+
+    with client:
+        response = client.post(
+            "/api/bouquets",
+            headers=admin_headers,
+            json={"name": "Fresh Peonies", "base_price": "900.00", "is_custom": False},
+        )
+        assert response.status_code == 201
+
+    with SessionLocal() as db:
+        notifications = (
+            db.query(Notification)
+            .filter(Notification.type == NotificationType.NEW_ARRIVAL)
+            .order_by(Notification.client_id)
+            .all()
+        )
+        assert len(notifications) == 2
+        assert all("Fresh Peonies" in item.message for item in notifications)
+        assert {item.client_id for item in notifications} == {1, 2}
+
+    app.dependency_overrides.clear()
+
+
+def test_custom_catalog_bouquet_does_not_broadcast_new_arrival():
+    client, SessionLocal = make_client()
+    admin_headers = auth_headers(SessionLocal, UserRole.ADMIN)
+
+    with SessionLocal() as db:
+        user = User(
+            email="arrival-custom-client@example.com",
+            password_hash="hashed-password",
+            role=UserRole.CLIENT,
+        )
+        db.add(user)
+        db.flush()
+        db.add(Client(user_id=user.id, full_name="Client"))
+        db.commit()
+
+    with client:
+        response = client.post(
+            "/api/bouquets",
+            headers=admin_headers,
+            json={"name": "Private Custom", "base_price": "500.00", "is_custom": True},
+        )
+        assert response.status_code == 201
+
+    with SessionLocal() as db:
+        assert db.query(Notification).count() == 0
 
     app.dependency_overrides.clear()

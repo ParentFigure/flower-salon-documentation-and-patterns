@@ -51,6 +51,14 @@ def list_occasions(db: Session = Depends(get_db)):
     return OccasionRepository(db).list_all(active_only=True)
 
 
+@router.get("/admin/all", response_model=list[OccasionRead])
+def list_all_for_admin(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return OccasionRepository(db).list_all(active_only=False)
+
+
 @router.get("/{occasion_id}", response_model=OccasionRead)
 def get_occasion(occasion_id: int, db: Session = Depends(get_db)):
     return _get_occasion_or_404(OccasionRepository(db), occasion_id)

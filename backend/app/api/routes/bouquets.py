@@ -6,7 +6,10 @@ from app.db.session import get_db
 from app.models.bouquet import Bouquet
 from app.models.user import User
 from app.repositories.bouquet_repository import BouquetRepository
+from app.repositories.client_repository import ClientRepository
+from app.repositories.notification_repository import NotificationRepository
 from app.schemas.custom_bouquet import CustomBouquetCreate, CustomBouquetPreviewRead
+from app.patterns.observer import NotificationPublisher, PersistentNotificationObserver
 from app.services.custom_bouquet_service import (
     CustomBouquetResourceNotFoundError,
     CustomBouquetService,
@@ -54,6 +57,32 @@ def _serialize_bouquet(bouquet: Bouquet) -> BouquetRead:
             for item in bouquet.items
         ],
     )
+
+
+
+def _notify_new_arrival(db: Session, bouquet: Bouquet) -> None:
+    """Broadcast a newly published catalog bouquet through the Observer pattern."""
+    if bouquet.is_custom:
+        return
+
+    clients = ClientRepository(db).list_all()
+    if not clients:
+        return
+
+    publisher = NotificationPublisher()
+    repository = NotificationRepository(db)
+    observers = [
+        PersistentNotificationObserver(client.id, repository)
+        for client in clients
+    ]
+    for observer in observers:
+        publisher.subscribe(observer)
+
+    try:
+        publisher.new_arrival(bouquet.name)
+    finally:
+        for observer in observers:
+            publisher.unsubscribe(observer)
 
 
 def _apply_catalog_relations(
@@ -159,6 +188,7 @@ def create_bouquet(
         payload.occasion_ids,
         payload.composition,
     )
+    _notify_new_arrival(db, bouquet)
     return _serialize_bouquet(bouquet)
 
 

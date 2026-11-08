@@ -9,6 +9,11 @@ from app.models.bouquet import Bouquet
 from app.models.flower import Flower
 from app.models.order_item import OrderItem
 from app.patterns.builder import CustomBouquetBuilder
+from app.patterns.decorator import (
+    BasicBouquet,
+    GreetingCardDecorator,
+    PackagingDecorator,
+)
 from app.repositories.flower_repository import FlowerRepository
 from app.repositories.occasion_repository import OccasionRepository
 from app.repositories.packaging_repository import PackagingRepository
@@ -115,7 +120,6 @@ class CustomBouquetService:
                 )
             packaging_name = packaging.name
             packaging_price = packaging.price
-            builder.set_packaging(packaging.name, packaging.price)
 
         normalized_card_text = (
             greeting_card_text.strip() if greeting_card_text is not None else None
@@ -127,7 +131,6 @@ class CustomBouquetService:
         greeting_card_price = Decimal("0.00")
         if normalized_card_text:
             greeting_card_price = GREETING_CARD_PRICE
-            builder.add_greeting_card(normalized_card_text, GREETING_CARD_PRICE)
 
         normalized_occasion_ids = list(dict.fromkeys(occasion_ids or []))
         for occasion_id in normalized_occasion_ids:
@@ -138,6 +141,28 @@ class CustomBouquetService:
                 )
 
         bouquet = builder.build(name.strip())
+
+        # Builder creates the base custom bouquet from selected flowers.
+        # Optional product features are then composed through the GoF Decorator
+        # pattern so the production flow uses the same extensible mechanism as
+        # the pattern implementation itself.
+        decorated = BasicBouquet(bouquet)
+        if packaging_name is not None:
+            decorated = PackagingDecorator(
+                decorated,
+                packaging_name=packaging_name,
+                price=packaging_price,
+            )
+        if normalized_card_text:
+            decorated = GreetingCardDecorator(
+                decorated,
+                text=normalized_card_text,
+                price=greeting_card_price,
+            )
+
+        bouquet.base_price = decorated.get_price()
+        bouquet.description = decorated.get_description()
+
         return CustomBouquetPreview(
             bouquet=bouquet,
             flowers=flower_details,

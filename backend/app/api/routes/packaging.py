@@ -29,6 +29,14 @@ def list_packaging(db: Session = Depends(get_db)):
     return PackagingRepository(db).list_all(active_only=True)
 
 
+@router.get("/admin/all", response_model=list[PackagingRead])
+def list_all_for_admin(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return PackagingRepository(db).list_all(active_only=False)
+
+
 @router.get("/{packaging_id}", response_model=PackagingRead)
 def get_packaging(packaging_id: int, db: Session = Depends(get_db)):
     return _get_packaging_or_404(PackagingRepository(db), packaging_id)

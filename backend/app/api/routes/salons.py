@@ -39,6 +39,14 @@ def list_salons(db: Session = Depends(get_db)):
     return SalonRepository(db).list_all(active_only=True)
 
 
+@router.get("/admin/all", response_model=list[SalonRead])
+def list_all_for_admin(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return SalonRepository(db).list_all(active_only=False)
+
+
 @router.get("/{salon_id}", response_model=SalonRead)
 def get_salon(salon_id: int, db: Session = Depends(get_db)):
     return _get_salon_or_404(SalonRepository(db), salon_id)

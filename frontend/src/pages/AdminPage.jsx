@@ -1,17 +1,65 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AdminEntityManager from "../components/AdminEntityManager";
+import AdminLoyaltyManager from "../components/AdminLoyaltyManager";
 import {
   createAdminBouquet,
+  createAdminDeliveryMethod,
   createAdminFlower,
+  createAdminOccasion,
+  createAdminPackaging,
+  createAdminSalon,
   deleteAdminBouquet,
+  deleteAdminDeliveryMethod,
   deleteAdminFlower,
+  deleteAdminOccasion,
+  deleteAdminPackaging,
+  deleteAdminSalon,
   getAdminBouquets,
+  getAdminDeliveryMethods,
   getAdminFlowers,
   getAdminOccasions,
   getAdminOrders,
+  getAdminPackaging,
+  getAdminSalons,
   updateAdminBouquet,
+  updateAdminDeliveryMethod,
   updateAdminFlower,
+  updateAdminOccasion,
   updateAdminOrderStatus,
+  updateAdminPackaging,
+  updateAdminSalon,
 } from "../api/admin";
+
+const PACKAGING_FIELDS = [
+  { key: "name", label: "Назва", required: true, minLength: 2 },
+  { key: "description", label: "Опис", type: "textarea", nullable: true, maxLength: 1000 },
+  { key: "price", label: "Ціна, грн", type: "number", required: true, min: 0, step: 0.01 },
+  { key: "is_active", label: "Активна", type: "checkbox", defaultValue: true },
+];
+
+const OCCASION_FIELDS = [
+  { key: "name", label: "Назва", required: true, minLength: 2 },
+  { key: "slug", label: "Slug", required: true, minLength: 2, pattern: "[a-z0-9]+(?:-[a-z0-9]+)*" },
+  { key: "description", label: "Опис", type: "textarea", nullable: true, maxLength: 1000 },
+  { key: "is_active", label: "Активна", type: "checkbox", defaultValue: true },
+];
+
+const SALON_FIELDS = [
+  { key: "name", label: "Назва", required: true, minLength: 2 },
+  { key: "address", label: "Адреса", required: true, minLength: 5 },
+  { key: "phone", label: "Телефон", nullable: true, maxLength: 30 },
+  { key: "description", label: "Опис", type: "textarea", nullable: true, maxLength: 1000 },
+  { key: "is_active", label: "Активний салон", type: "checkbox", defaultValue: true },
+];
+
+const DELIVERY_FIELDS = [
+  { key: "code", label: "Код", required: true, minLength: 2, pattern: "[a-z0-9]+(?:-[a-z0-9]+)*" },
+  { key: "name", label: "Назва", required: true, minLength: 2 },
+  { key: "description", label: "Опис", type: "textarea", nullable: true, maxLength: 1000 },
+  { key: "base_price", label: "Базова ціна, грн", type: "number", required: true, min: 0, step: 0.01 },
+  { key: "requires_address", label: "Потрібна адреса", type: "checkbox", defaultValue: false },
+  { key: "is_active", label: "Активний спосіб", type: "checkbox", defaultValue: true },
+];
 
 const ORDER_ACTIONS = {
   created: [
@@ -382,22 +430,39 @@ export default function AdminPage() {
   const [flowers, setFlowers] = useState([]);
   const [bouquets, setBouquets] = useState([]);
   const [occasions, setOccasions] = useState([]);
+  const [packaging, setPackaging] = useState([]);
+  const [salons, setSalons] = useState([]);
+  const [deliveryMethods, setDeliveryMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyOrderId, setBusyOrderId] = useState(null);
 
   const loadAll = useCallback(async () => {
     setError("");
-    const [orderData, flowerData, bouquetData, occasionData] = await Promise.all([
+    const [
+      orderData,
+      flowerData,
+      bouquetData,
+      occasionData,
+      packagingData,
+      salonData,
+      deliveryData,
+    ] = await Promise.all([
       getAdminOrders(),
       getAdminFlowers(),
       getAdminBouquets(),
       getAdminOccasions(),
+      getAdminPackaging(),
+      getAdminSalons(),
+      getAdminDeliveryMethods(),
     ]);
     setOrders(orderData);
     setFlowers(flowerData);
     setBouquets(bouquetData);
     setOccasions(occasionData);
+    setPackaging(packagingData);
+    setSalons(salonData);
+    setDeliveryMethods(deliveryData);
   }, []);
 
   useEffect(() => {
@@ -434,7 +499,7 @@ export default function AdminPage() {
         <div>
           <p className="eyebrow">Адмін-панель</p>
           <h1>Керування мережею</h1>
-          <p className="muted">Каталог, запаси та життєвий цикл замовлень в одному місці.</p>
+          <p className="muted">Каталог, налаштування мережі, loyalty та життєвий цикл замовлень в одному місці.</p>
         </div>
         <div className="admin-stat-grid">
           <div><strong>{stats.activeOrders}</strong><span>активних замовлень</span></div>
@@ -449,12 +514,70 @@ export default function AdminPage() {
         <button className={activeTab === "orders" ? "active" : ""} onClick={() => setActiveTab("orders")} type="button">Замовлення <span>{orders.length}</span></button>
         <button className={activeTab === "flowers" ? "active" : ""} onClick={() => setActiveTab("flowers")} type="button">Квіти <span>{flowers.length}</span></button>
         <button className={activeTab === "bouquets" ? "active" : ""} onClick={() => setActiveTab("bouquets")} type="button">Букети <span>{bouquets.length}</span></button>
+        <button className={activeTab === "packaging" ? "active" : ""} onClick={() => setActiveTab("packaging")} type="button">Упаковка <span>{packaging.length}</span></button>
+        <button className={activeTab === "occasions" ? "active" : ""} onClick={() => setActiveTab("occasions")} type="button">Події <span>{occasions.length}</span></button>
+        <button className={activeTab === "salons" ? "active" : ""} onClick={() => setActiveTab("salons")} type="button">Салони <span>{salons.length}</span></button>
+        <button className={activeTab === "delivery" ? "active" : ""} onClick={() => setActiveTab("delivery")} type="button">Доставка <span>{deliveryMethods.length}</span></button>
+        <button className={activeTab === "loyalty" ? "active" : ""} onClick={() => setActiveTab("loyalty")} type="button">Loyalty</button>
       </div>
 
       <div className="admin-panel">
         {activeTab === "orders" && <AdminOrders orders={orders} onStatusChange={changeStatus} busyId={busyOrderId} />}
         {activeTab === "flowers" && <FlowerManager flowers={flowers} onRefresh={loadAll} />}
         {activeTab === "bouquets" && <BouquetManager bouquets={bouquets} flowers={flowers} occasions={occasions} onRefresh={loadAll} />}
+        {activeTab === "packaging" && (
+          <AdminEntityManager
+            title="Упаковка"
+            singular="упаковку"
+            items={packaging}
+            fields={PACKAGING_FIELDS}
+            createItem={createAdminPackaging}
+            updateItem={updateAdminPackaging}
+            deleteItem={deleteAdminPackaging}
+            onRefresh={loadAll}
+            renderSummary={(item) => `${money(item.price)} · ${item.is_active ? "активна" : "неактивна"}`}
+          />
+        )}
+        {activeTab === "occasions" && (
+          <AdminEntityManager
+            title="Події"
+            singular="подію"
+            items={occasions}
+            fields={OCCASION_FIELDS}
+            createItem={createAdminOccasion}
+            updateItem={updateAdminOccasion}
+            deleteItem={deleteAdminOccasion}
+            onRefresh={loadAll}
+            renderSummary={(item) => `${item.slug} · ${item.is_active ? "активна" : "неактивна"}`}
+          />
+        )}
+        {activeTab === "salons" && (
+          <AdminEntityManager
+            title="Салони"
+            singular="салон"
+            items={salons}
+            fields={SALON_FIELDS}
+            createItem={createAdminSalon}
+            updateItem={updateAdminSalon}
+            deleteItem={deleteAdminSalon}
+            onRefresh={loadAll}
+            renderSummary={(item) => `${item.address}${item.phone ? ` · ${item.phone}` : ""}`}
+          />
+        )}
+        {activeTab === "delivery" && (
+          <AdminEntityManager
+            title="Способи доставки"
+            singular="спосіб доставки"
+            items={deliveryMethods}
+            fields={DELIVERY_FIELDS}
+            createItem={createAdminDeliveryMethod}
+            updateItem={updateAdminDeliveryMethod}
+            deleteItem={deleteAdminDeliveryMethod}
+            onRefresh={loadAll}
+            renderSummary={(item) => `${item.code} · ${money(item.base_price)} · ${item.requires_address ? "потрібна адреса" : "без адреси"}`}
+          />
+        )}
+        {activeTab === "loyalty" && <AdminLoyaltyManager orders={orders} />}
       </div>
     </section>
   );

@@ -23,7 +23,7 @@ def make_bouquet() -> Bouquet:
 def test_basic_bouquet_exposes_original_name_and_price():
     component = BasicBouquet(make_bouquet())
 
-    assert component.get_description() == "Birthday roses"
+    assert component.get_description() == "Classic bouquet"
     assert component.get_price() == Decimal("500.00")
 
 
@@ -34,7 +34,7 @@ def test_packaging_decorator_adds_description_and_price():
         price=Decimal("70.00"),
     )
 
-    assert decorated.get_description() == "Birthday roses, packaging: Kraft paper"
+    assert decorated.get_description() == "Classic bouquet, packaging: Kraft paper"
     assert decorated.get_price() == Decimal("570.00")
 
 
@@ -55,7 +55,7 @@ def test_decorators_can_be_combined_in_any_sequence():
 
     assert decorated.get_price() == Decimal("645.00")
     assert decorated.get_description() == (
-        'Birthday roses, packaging: Gift box, red ribbon, card: "Happy birthday!"'
+        'Classic bouquet, packaging: Gift box, red ribbon, card: "Happy birthday!"'
     )
 
 

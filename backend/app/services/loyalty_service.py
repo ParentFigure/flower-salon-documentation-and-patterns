@@ -84,6 +84,19 @@ class LoyaltyService:
         self._validate_client_id(client_id)
         return self.repository.get_by_client_id(client_id)
 
+    def update_card(
+        self,
+        client_id: int,
+        card_type: LoyaltyCardType,
+        *,
+        is_active: bool = True,
+    ) -> LoyaltyCard:
+        """Update the type/active state of an existing loyalty card."""
+        card = self.get_card(client_id)
+        card.card_type = card_type
+        card.is_active = is_active
+        return self.repository.save(card)
+
     def accrue_bonus(self, client_id: int, amount: Decimal) -> LoyaltyCard:
         card = self.get_card(client_id)
         card.add_bonus(amount)
