@@ -20,3 +20,8 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="client")
+    loyalty_card: Mapped["LoyaltyCard | None"] = relationship(
+        back_populates="client",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
