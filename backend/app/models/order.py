@@ -52,6 +52,16 @@ class Order(Base):
     delivery_type: Mapped[str] = mapped_column(
         String(50), default="pickup", nullable=False
     )
+    delivery_method_id: Mapped[int | None] = mapped_column(
+        ForeignKey("delivery_methods.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    pickup_salon_id: Mapped[int | None] = mapped_column(
+        ForeignKey("salons.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     delivery_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -67,6 +77,13 @@ class Order(Base):
     )
 
     client: Mapped["Client"] = relationship()
+    delivery_method: Mapped["DeliveryMethod | None"] = relationship(
+        back_populates="orders"
+    )
+    pickup_salon: Mapped["Salon | None"] = relationship(
+        back_populates="pickup_orders",
+        foreign_keys=[pickup_salon_id],
+    )
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order",
         cascade="all, delete-orphan",
