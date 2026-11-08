@@ -37,6 +37,15 @@ class OrderRepository:
         )
         return list(self.db.scalars(statement).all())
 
+    def list_all(self) -> list[Order]:
+        """Return all orders, newest first, for administrative views."""
+        statement = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .order_by(Order.created_at.desc(), Order.id.desc())
+        )
+        return list(self.db.scalars(statement).all())
+
     def update_status(self, order_id: int, status: OrderStatus) -> Order | None:
         """Update persisted order status and return the updated order."""
         order = self.db.get(Order, order_id)

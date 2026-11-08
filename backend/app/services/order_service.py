@@ -124,6 +124,10 @@ class OrderService:
             raise ValueError("Client id must be greater than zero")
         return self.repository.list_for_client(client_id)
 
+    def list_orders(self) -> list[Order]:
+        """Return all orders for the administrative dashboard."""
+        return self.repository.list_all()
+
     def confirm_order(self, order_id: int) -> Order:
         return self._transition(order_id, "confirm")
 

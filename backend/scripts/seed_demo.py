@@ -1,9 +1,10 @@
 from decimal import Decimal
 
 import app.models  # noqa: F401 - registers all SQLAlchemy models
+from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
-from app.models import Bouquet, BouquetItem, DeliveryMethod, Flower, Occasion, Packaging, Salon
+from app.models import Bouquet, BouquetItem, DeliveryMethod, Flower, Occasion, Packaging, Salon, User, UserRole
 
 
 def get_or_create(db, model, defaults=None, **lookup):
@@ -22,6 +23,17 @@ def seed():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        get_or_create(
+            db,
+            User,
+            email="admin@bloom.local",
+            defaults={
+                "password_hash": hash_password("Admin123!"),
+                "role": UserRole.ADMIN,
+                "is_active": True,
+            },
+        )
+
         flowers = {}
         flower_data = [
             ("Троянда червона", "95.00", 60),
@@ -146,6 +158,7 @@ def seed():
 
         db.commit()
         print("Demo data seeded successfully.")
+        print("Demo admin: admin@bloom.local / Admin123!")
     except Exception:
         db.rollback()
         raise

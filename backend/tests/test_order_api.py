@@ -189,6 +189,64 @@ def test_list_client_orders_returns_only_clients_orders():
     app.dependency_overrides.clear()
 
 
+def test_admin_can_list_all_orders():
+    client, SessionLocal = make_client()
+    client_id, bouquet_id, user_id = seed_data(SessionLocal, suffix="admin-list")
+    second_client_id, second_user_id = seed_second_client(SessionLocal, suffix="admin-list-second")
+    admin_id = seed_admin(SessionLocal)
+
+    with SessionLocal() as db:
+        second_bouquet = Bouquet(
+            name="Second admin-list bouquet",
+            description="Second bouquet",
+            base_price=Decimal("250.00"),
+            is_custom=False,
+        )
+        db.add(second_bouquet)
+        db.commit()
+        second_bouquet_id = second_bouquet.id
+
+    with client:
+        create_order(
+            client,
+            client_id,
+            bouquet_id,
+            headers=headers_for(user_id, UserRole.CLIENT),
+        )
+        create_order(
+            client,
+            second_client_id,
+            second_bouquet_id,
+            headers=headers_for(second_user_id, UserRole.CLIENT),
+        )
+
+        response = client.get(
+            "/api/orders",
+            headers=headers_for(admin_id, UserRole.ADMIN),
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert {order["client_id"] for order in data} == {client_id, second_client_id}
+
+    app.dependency_overrides.clear()
+
+
+def test_client_cannot_list_all_orders():
+    client, SessionLocal = make_client()
+    _client_id, _bouquet_id, user_id = seed_data(SessionLocal, suffix="client-list-all")
+
+    with client:
+        response = client.get(
+            "/api/orders",
+            headers=headers_for(user_id, UserRole.CLIENT),
+        )
+        assert response.status_code == 403
+
+    app.dependency_overrides.clear()
+
+
 def test_status_endpoint_uses_state_transitions_for_admin():
     client, SessionLocal = make_client()
     client_id, bouquet_id, user_id = seed_data(SessionLocal)

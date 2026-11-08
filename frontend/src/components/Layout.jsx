@@ -21,7 +21,7 @@ export default function Layout() {
         <nav className="site-nav" aria-label="Головна навігація">
           <NavLink className={navClass} to="/catalog">Каталог</NavLink>
           {isClient && <NavLink className={navClass} to="/builder">Свій букет</NavLink>}
-          {user && <NavLink className={navClass} to="/profile">Кабінет</NavLink>}
+          {isClient && <NavLink className={navClass} to="/profile">Кабінет</NavLink>}
           {isAdmin && <NavLink className={navClass} to="/admin">Адмін</NavLink>}
           {!user ? (
             <>

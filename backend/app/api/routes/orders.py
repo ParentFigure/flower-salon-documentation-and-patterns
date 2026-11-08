@@ -190,6 +190,14 @@ def _order_service(
     )
 
 
+@router.get("", response_model=list[OrderRead])
+def list_orders_for_admin(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    return _order_service(db).list_orders()
+
+
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def create_order(
     payload: OrderCreate,
