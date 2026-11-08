@@ -24,6 +24,11 @@ class DeliveryMethodRepository:
             select(DeliveryMethod).where(DeliveryMethod.code == code)
         )
 
+    def get_by_name(self, name: str) -> DeliveryMethod | None:
+        return self.db.scalar(
+            select(DeliveryMethod).where(DeliveryMethod.name == name)
+        )
+
     def create(self, method: DeliveryMethod) -> DeliveryMethod:
         self.db.add(method)
         self.db.commit()

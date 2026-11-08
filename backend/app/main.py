@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from app.api.routes import (
     auth,
     bouquets,
+    delivery_methods,
     flowers,
     health,
     loyalty,
@@ -10,6 +11,7 @@ from app.api.routes import (
     occasions,
     orders,
     packaging,
+    salons,
 )
 
 app = FastAPI(
@@ -21,6 +23,8 @@ app.include_router(health.router)
 app.include_router(auth.router, prefix="/api")
 app.include_router(bouquets.router, prefix="/api")
 app.include_router(flowers.router, prefix="/api")
+app.include_router(salons.router, prefix="/api")
+app.include_router(delivery_methods.router, prefix="/api")
 app.include_router(occasions.router, prefix="/api")
 app.include_router(packaging.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")

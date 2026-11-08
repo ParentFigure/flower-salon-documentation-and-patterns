@@ -60,6 +60,8 @@ class OrderService:
         delivery_strategy: DeliveryStrategy,
         discount_strategy: DiscountStrategy,
         delivery_address: str | None = None,
+        delivery_method_id: int | None = None,
+        pickup_salon_id: int | None = None,
     ) -> Order:
         if client_id <= 0:
             raise ValueError("Client id must be greater than zero")
@@ -91,6 +93,8 @@ class OrderService:
             discount_amount=discount_amount,
             delivery_cost=delivery_cost,
             delivery_type=delivery_strategy.name,
+            delivery_method_id=delivery_method_id,
+            pickup_salon_id=pickup_salon_id,
             delivery_address=normalized_address,
         )
         return self.repository.create(order)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import ensure_client_access, get_current_user, require_admin, require_client
 from app.db.session import get_db
 from app.models.client import Client
+from app.models.delivery_method import DeliveryMethod
 from app.models.order import OrderStatus
 from app.models.order_item import OrderItem
 from app.models.user import User
@@ -25,8 +26,10 @@ from app.patterns.strategy.discount import (
     SocialDiscount,
 )
 from app.repositories.bouquet_repository import BouquetRepository
+from app.repositories.delivery_method_repository import DeliveryMethodRepository
 from app.repositories.notification_repository import NotificationRepository
 from app.repositories.order_repository import OrderRepository
+from app.repositories.salon_repository import SalonRepository
 from app.schemas.order import (
     DeliveryType,
     DiscountType,
@@ -46,6 +49,71 @@ def _delivery_strategy(delivery_type: DeliveryType) -> DeliveryStrategy:
         DeliveryType.EXPRESS: ExpressDelivery(),
     }
     return strategies[delivery_type]
+
+
+def _configured_delivery_strategy(method: DeliveryMethod) -> DeliveryStrategy:
+    if method.code == DeliveryType.PICKUP.value:
+        return PickupDelivery()
+    if method.code == DeliveryType.COURIER.value:
+        return CourierDelivery(method.base_price)
+    if method.code == DeliveryType.EXPRESS.value:
+        return ExpressDelivery(method.base_price)
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Unsupported delivery method code: {method.code}",
+    )
+
+
+def _resolve_delivery(
+    payload: OrderCreate,
+    db: Session,
+) -> tuple[DeliveryStrategy, int | None, int | None]:
+    method_id: int | None = None
+    pickup_salon_id = payload.pickup_salon_id
+
+    if payload.delivery_method_id is not None:
+        method = DeliveryMethodRepository(db).get_by_id(payload.delivery_method_id)
+        if method is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Delivery method not found",
+            )
+        if not method.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Delivery method is inactive",
+            )
+        strategy = _configured_delivery_strategy(method)
+        method_id = method.id
+    else:
+        strategy = _delivery_strategy(payload.delivery_type)
+
+    if strategy.name == DeliveryType.PICKUP.value:
+        if method_id is not None and pickup_salon_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Pickup salon is required for pickup",
+            )
+        if pickup_salon_id is not None:
+            salon = SalonRepository(db).get_by_id(pickup_salon_id)
+            if salon is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Salon not found",
+                )
+            if not salon.is_active:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Pickup salon is inactive",
+                )
+    elif pickup_salon_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Pickup salon can only be selected for pickup delivery",
+        )
+
+    return strategy, method_id, pickup_salon_id
 
 
 def _discount_strategy(payload: OrderCreate) -> DiscountStrategy:
@@ -122,14 +190,19 @@ def create_order(
         )
 
     service = _order_service(db)
+    delivery_strategy, delivery_method_id, pickup_salon_id = _resolve_delivery(
+        payload, db
+    )
 
     try:
         return service.create_order(
             client_id=payload.client_id,
             items=items,
-            delivery_strategy=_delivery_strategy(payload.delivery_type),
+            delivery_strategy=delivery_strategy,
             discount_strategy=_discount_strategy(payload),
             delivery_address=payload.delivery_address,
+            delivery_method_id=delivery_method_id,
+            pickup_salon_id=pickup_salon_id,
         )
     except ValueError as exc:
         raise HTTPException(

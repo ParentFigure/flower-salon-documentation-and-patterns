@@ -30,6 +30,8 @@ class OrderCreate(BaseModel):
     client_id: int = Field(gt=0)
     items: list[OrderItemCreate] = Field(min_length=1)
     delivery_type: DeliveryType = DeliveryType.PICKUP
+    delivery_method_id: int | None = Field(default=None, gt=0)
+    pickup_salon_id: int | None = Field(default=None, gt=0)
     delivery_address: str | None = Field(default=None, max_length=255)
     discount_type: DiscountType = DiscountType.NONE
     event_name: str | None = Field(default=None, max_length=120)
@@ -71,6 +73,8 @@ class OrderRead(BaseModel):
     delivery_cost: Decimal
     total_price: Decimal
     delivery_type: str
+    delivery_method_id: int | None
+    pickup_salon_id: int | None
     delivery_address: str | None
     created_at: datetime
     items: list[OrderItemRead]
