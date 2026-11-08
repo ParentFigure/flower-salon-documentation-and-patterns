@@ -28,3 +28,14 @@ class PackagingRepository:
         self.db.commit()
         self.db.refresh(packaging)
         return packaging
+
+    def update(self, packaging: Packaging, **changes) -> Packaging:
+        for field, value in changes.items():
+            setattr(packaging, field, value)
+        self.db.commit()
+        self.db.refresh(packaging)
+        return packaging
+
+    def delete(self, packaging: Packaging) -> None:
+        self.db.delete(packaging)
+        self.db.commit()

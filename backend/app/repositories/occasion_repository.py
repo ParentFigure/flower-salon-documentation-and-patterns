@@ -19,6 +19,10 @@ class OccasionRepository:
     def get_by_id(self, occasion_id: int) -> Occasion | None:
         return self.db.get(Occasion, occasion_id)
 
+    def get_by_name(self, name: str) -> Occasion | None:
+        statement = select(Occasion).where(Occasion.name == name)
+        return self.db.scalar(statement)
+
     def get_by_slug(self, slug: str) -> Occasion | None:
         statement = select(Occasion).where(Occasion.slug == slug)
         return self.db.scalar(statement)
@@ -28,3 +32,14 @@ class OccasionRepository:
         self.db.commit()
         self.db.refresh(occasion)
         return occasion
+
+    def update(self, occasion: Occasion, **changes) -> Occasion:
+        for field, value in changes.items():
+            setattr(occasion, field, value)
+        self.db.commit()
+        self.db.refresh(occasion)
+        return occasion
+
+    def delete(self, occasion: Occasion) -> None:
+        self.db.delete(occasion)
+        self.db.commit()
