@@ -10,7 +10,7 @@ from app.repositories.bouquet_repository import BouquetRepository
 
 def make_session() -> Session:
     engine = create_engine("sqlite+pysqlite:///:memory:")
-    Base.metadata.create_all(engine, tables=[Bouquet.__table__])
+    Base.metadata.create_all(engine)
     return Session(engine)
 
 

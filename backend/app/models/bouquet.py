@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from decimal import Decimal
+
 from sqlalchemy import Boolean, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
 
 
@@ -18,4 +20,9 @@ class Bouquet(Base):
     occasions: Mapped[list["Occasion"]] = relationship(
         secondary="bouquet_occasions",
         back_populates="bouquets",
+    )
+    items: Mapped[list["BouquetItem"]] = relationship(
+        back_populates="bouquet",
+        cascade="all, delete-orphan",
+        order_by="BouquetItem.id",
     )
