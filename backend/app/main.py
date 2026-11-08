@@ -11,6 +11,7 @@ from app.api.routes import (
     occasions,
     orders,
     packaging,
+    profile,
     salons,
 )
 
@@ -27,6 +28,7 @@ app.include_router(salons.router, prefix="/api")
 app.include_router(delivery_methods.router, prefix="/api")
 app.include_router(occasions.router, prefix="/api")
 app.include_router(packaging.router, prefix="/api")
+app.include_router(profile.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(loyalty.router, prefix="/api")
 app.include_router(notifications.router, prefix="/api")

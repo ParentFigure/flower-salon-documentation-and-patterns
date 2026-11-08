@@ -1,3 +1,4 @@
+from app.repositories.client_repository import ClientRepository
 from app.repositories.bouquet_repository import BouquetRepository
 from app.repositories.delivery_method_repository import DeliveryMethodRepository
 from app.repositories.flower_repository import FlowerRepository
@@ -11,6 +12,7 @@ from app.repositories.user_repository import UserRepository
 
 __all__ = [
     "BouquetRepository",
+    "ClientRepository",
     "DeliveryMethodRepository",
     "FlowerRepository",
     "LoyaltyCardRepository",
