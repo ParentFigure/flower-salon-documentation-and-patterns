@@ -3,6 +3,10 @@ from __future__ import annotations
 from decimal import Decimal
 
 from app.models.loyalty_card import LoyaltyCard, LoyaltyCardType
+from app.patterns.observer.notification_observer import (
+    NotificationPublisher,
+    PersistentNotificationObserver,
+)
 from app.patterns.strategy.delivery import (
     CourierDelivery,
     DeliveryStrategy,
@@ -16,6 +20,7 @@ from app.patterns.strategy.discount import (
     SocialDiscount,
 )
 from app.repositories.loyalty_card_repository import LoyaltyCardRepository
+from app.repositories.notification_repository import NotificationRepository
 
 
 class ClientNotFoundError(LookupError):
@@ -33,8 +38,15 @@ class LoyaltyCardAlreadyExistsError(ValueError):
 class LoyaltyService:
     """Application service for loyalty-card business rules."""
 
-    def __init__(self, repository: LoyaltyCardRepository) -> None:
+    def __init__(
+        self,
+        repository: LoyaltyCardRepository,
+        notifications: NotificationPublisher | None = None,
+        notification_repository: NotificationRepository | None = None,
+    ) -> None:
         self.repository = repository
+        self.notifications = notifications or NotificationPublisher()
+        self.notification_repository = notification_repository
 
     def issue_card(
         self,
@@ -65,7 +77,9 @@ class LoyaltyService:
     def accrue_bonus(self, client_id: int, amount: Decimal) -> LoyaltyCard:
         card = self.get_card(client_id)
         card.add_bonus(amount)
-        return self.repository.save(card)
+        saved_card = self.repository.save(card)
+        self._notify_bonus_accrued(client_id, amount)
+        return saved_card
 
     def spend_bonus(self, client_id: int, amount: Decimal) -> LoyaltyCard:
         card = self.get_card(client_id)
@@ -101,6 +115,21 @@ class LoyaltyService:
             return ExpressDelivery()
 
         raise ValueError(f"Unsupported delivery type: {delivery_type}")
+
+    def _notify_bonus_accrued(self, client_id: int, amount: Decimal) -> None:
+        persistent_observer = None
+        if self.notification_repository is not None:
+            persistent_observer = PersistentNotificationObserver(
+                client_id,
+                self.notification_repository,
+            )
+            self.notifications.subscribe(persistent_observer)
+
+        try:
+            self.notifications.bonus_accrued(amount)
+        finally:
+            if persistent_observer is not None:
+                self.notifications.unsubscribe(persistent_observer)
 
     @staticmethod
     def _validate_client_id(client_id: int) -> None:

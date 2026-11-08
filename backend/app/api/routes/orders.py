@@ -23,6 +23,7 @@ from app.patterns.strategy.discount import (
     SocialDiscount,
 )
 from app.repositories.bouquet_repository import BouquetRepository
+from app.repositories.notification_repository import NotificationRepository
 from app.repositories.order_repository import OrderRepository
 from app.schemas.order import (
     DeliveryType,
@@ -79,7 +80,10 @@ def _discount_strategy(payload: OrderCreate) -> DiscountStrategy:
 
 
 def _order_service(db: Session) -> OrderService:
-    return OrderService(OrderRepository(db))
+    return OrderService(
+        OrderRepository(db),
+        notification_repository=NotificationRepository(db),
+    )
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.repositories.loyalty_card_repository import LoyaltyCardRepository
+from app.repositories.notification_repository import NotificationRepository
 from app.schemas.loyalty import (
     BonusAmount,
     BonusBalanceRead,
@@ -20,7 +21,10 @@ router = APIRouter(prefix="/loyalty", tags=["loyalty"])
 
 
 def _service(db: Session) -> LoyaltyService:
-    return LoyaltyService(LoyaltyCardRepository(db))
+    return LoyaltyService(
+        LoyaltyCardRepository(db),
+        notification_repository=NotificationRepository(db),
+    )
 
 
 def _not_found(exc: LookupError) -> HTTPException:

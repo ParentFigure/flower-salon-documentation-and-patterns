@@ -2,15 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from enum import StrEnum
+from decimal import Decimal
 
-
-class NotificationType(StrEnum):
-    """Supported business events that can produce client notifications."""
-
-    ORDER_READY = "order_ready"
-    BONUS_ACCRUED = "bonus_accrued"
-    NEW_ARRIVAL = "new_arrival"
+from app.models.notification import NotificationType
+from app.repositories.notification_repository import NotificationRepository
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,7 +60,7 @@ class NotificationPublisher:
             )
         )
 
-    def bonus_accrued(self, amount: int) -> None:
+    def bonus_accrued(self, amount: int | Decimal) -> None:
         if amount <= 0:
             raise ValueError("Bonus amount must be greater than zero")
         self.notify(
@@ -101,3 +96,24 @@ class ClientNotificationObserver(NotificationObserver):
 
     def update(self, event: NotificationEvent) -> None:
         self._events.append(event)
+
+
+class PersistentNotificationObserver(NotificationObserver):
+    """Observer that writes every received event to the notification repository."""
+
+    def __init__(
+        self,
+        client_id: int,
+        repository: NotificationRepository,
+    ) -> None:
+        if client_id <= 0:
+            raise ValueError("Client id must be greater than zero")
+        self.client_id = client_id
+        self.repository = repository
+
+    def update(self, event: NotificationEvent) -> None:
+        self.repository.create(
+            client_id=self.client_id,
+            notification_type=event.type,
+            message=event.message,
+        )

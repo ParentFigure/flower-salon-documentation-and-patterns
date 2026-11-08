@@ -4,6 +4,7 @@ from app.patterns.observer.notification_observer import (
     NotificationObserver,
     NotificationPublisher,
     NotificationType,
+    PersistentNotificationObserver,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "NotificationObserver",
     "NotificationPublisher",
     "ClientNotificationObserver",
+    "PersistentNotificationObserver",
 ]

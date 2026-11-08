@@ -4,7 +4,10 @@ from decimal import Decimal
 
 from app.models.order import Order, OrderStatus
 from app.models.order_item import OrderItem
-from app.patterns.observer.notification_observer import NotificationPublisher
+from app.patterns.observer.notification_observer import (
+    NotificationPublisher,
+    PersistentNotificationObserver,
+)
 from app.patterns.state.order_state import (
     CancelledState,
     CompletedState,
@@ -17,6 +20,7 @@ from app.patterns.state.order_state import (
 )
 from app.patterns.strategy.delivery import DeliveryCostCalculator, DeliveryStrategy
 from app.patterns.strategy.discount import DiscountCalculator, DiscountStrategy
+from app.repositories.notification_repository import NotificationRepository
 from app.repositories.order_repository import OrderRepository
 
 
@@ -42,9 +46,11 @@ class OrderService:
         self,
         repository: OrderRepository,
         notifications: NotificationPublisher | None = None,
+        notification_repository: NotificationRepository | None = None,
     ) -> None:
         self.repository = repository
         self.notifications = notifications or NotificationPublisher()
+        self.notification_repository = notification_repository
 
     def create_order(
         self,
@@ -108,7 +114,7 @@ class OrderService:
 
     def mark_ready(self, order_id: int) -> Order:
         order = self._transition(order_id, "mark_ready")
-        self.notifications.order_ready(order.id)
+        self._notify_order_ready(order)
         return order
 
     def start_delivery(self, order_id: int) -> Order:
@@ -119,6 +125,21 @@ class OrderService:
 
     def cancel_order(self, order_id: int) -> Order:
         return self._transition(order_id, "cancel")
+
+    def _notify_order_ready(self, order: Order) -> None:
+        persistent_observer = None
+        if self.notification_repository is not None:
+            persistent_observer = PersistentNotificationObserver(
+                order.client_id,
+                self.notification_repository,
+            )
+            self.notifications.subscribe(persistent_observer)
+
+        try:
+            self.notifications.order_ready(order.id)
+        finally:
+            if persistent_observer is not None:
+                self.notifications.unsubscribe(persistent_observer)
 
     def _transition(self, order_id: int, action: str) -> Order:
         order = self.get_order(order_id)
