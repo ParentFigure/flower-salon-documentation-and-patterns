@@ -146,3 +146,45 @@ def test_regular_card_uses_standard_courier_fee_and_validates_delivery_type():
     assert courier.calculate_cost(Decimal("1000.00")) == Decimal("100.00")
     with pytest.raises(ValueError, match="Unsupported delivery type"):
         service.delivery_strategy_for(client.id, "drone")
+
+
+def test_automatic_strategy_is_safe_when_client_has_no_card():
+    session = build_session()
+    client = create_client(session, "automatic-no-card@example.com")
+    service = build_service(session)
+
+    discount = service.automatic_discount_strategy_for(client.id)
+    delivery = service.apply_delivery_benefit(client.id, CourierDelivery())
+
+    assert isinstance(discount, NoDiscount)
+    assert delivery.calculate_cost(Decimal("500.00")) == Decimal("100.00")
+
+
+def test_accrue_order_bonus_uses_paid_merchandise_amount_only():
+    session = build_session()
+    client = create_client(session, "automatic-bonus@example.com")
+    service = build_service(session)
+    service.issue_card(client.id, LoyaltyCardType.GOLD)
+
+    card = service.accrue_order_bonus(
+        client.id,
+        subtotal=Decimal("1000.00"),
+        discount_amount=Decimal("100.00"),
+    )
+
+    assert card is not None
+    assert card.bonus_balance == Decimal("45.00")
+
+
+def test_inactive_card_does_not_accrue_order_bonus():
+    session = build_session()
+    client = create_client(session, "inactive-bonus@example.com")
+    service = build_service(session)
+    card = service.issue_card(client.id, LoyaltyCardType.BONUS)
+    card.is_active = False
+    service.repository.save(card)
+
+    result = service.accrue_order_bonus(client.id, Decimal("1000.00"))
+
+    assert result is None
+    assert service.get_card(client.id).bonus_balance == Decimal("0.00")

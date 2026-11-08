@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from app.models.loyalty_card import LoyaltyCard, LoyaltyCardType
 from app.patterns.observer.notification_observer import (
@@ -14,6 +14,7 @@ from app.patterns.strategy.delivery import (
     PickupDelivery,
 )
 from app.patterns.strategy.discount import (
+    BonusDiscount,
     DiscountStrategy,
     GoldDiscount,
     NoDiscount,
@@ -21,6 +22,10 @@ from app.patterns.strategy.discount import (
 )
 from app.repositories.loyalty_card_repository import LoyaltyCardRepository
 from app.repositories.notification_repository import NotificationRepository
+
+
+BONUS_ACCRUAL_RATE = Decimal("0.05")
+MONEY_STEP = Decimal("0.01")
 
 
 class ClientNotFoundError(LookupError):
@@ -74,6 +79,11 @@ class LoyaltyService:
             )
         return card
 
+    def get_card_optional(self, client_id: int) -> LoyaltyCard | None:
+        """Return a client's card or ``None`` when no card has been issued."""
+        self._validate_client_id(client_id)
+        return self.repository.get_by_client_id(client_id)
+
     def accrue_bonus(self, client_id: int, amount: Decimal) -> LoyaltyCard:
         card = self.get_card(client_id)
         card.add_bonus(amount)
@@ -86,6 +96,30 @@ class LoyaltyService:
         card.spend_bonus(amount)
         return self.repository.save(card)
 
+    def accrue_order_bonus(
+        self,
+        client_id: int,
+        subtotal: Decimal,
+        discount_amount: Decimal = Decimal("0.00"),
+    ) -> LoyaltyCard | None:
+        """Accrue 5% of the paid merchandise amount after order completion.
+
+        Delivery is intentionally excluded from the reward base. Clients without
+        an active loyalty card simply receive no bonus.
+        """
+        card = self.get_card_optional(client_id)
+        if card is None or not card.is_active:
+            return None
+
+        reward_base = max(subtotal - discount_amount, Decimal("0.00"))
+        amount = (reward_base * BONUS_ACCRUAL_RATE).quantize(
+            MONEY_STEP,
+            rounding=ROUND_HALF_UP,
+        )
+        if amount <= Decimal("0.00"):
+            return card
+        return self.accrue_bonus(client_id, amount)
+
     def discount_strategy_for(self, client_id: int) -> DiscountStrategy:
         """Select the discount Strategy associated with the client's card."""
         card = self.get_card(client_id)
@@ -96,6 +130,53 @@ class LoyaltyService:
         if card.card_type == LoyaltyCardType.SOCIAL:
             return SocialDiscount(card.discount_percent)
         return NoDiscount()
+
+    def automatic_discount_strategy_for(self, client_id: int) -> DiscountStrategy:
+        """Select a card discount without requiring the client to claim a card type."""
+        card = self.get_card_optional(client_id)
+        if card is None or not card.is_active:
+            return NoDiscount()
+        if card.card_type == LoyaltyCardType.GOLD:
+            return GoldDiscount(card.discount_percent)
+        if card.card_type == LoyaltyCardType.SOCIAL:
+            return SocialDiscount(card.discount_percent)
+        return NoDiscount()
+
+    def bonus_discount_strategy_for(
+        self,
+        client_id: int,
+        amount: Decimal,
+    ) -> DiscountStrategy:
+        """Create a bonus discount only when the client owns enough active bonuses."""
+        card = self.get_card(client_id)
+        if not card.is_active:
+            raise ValueError("Loyalty card is inactive")
+        if amount < Decimal("0.00"):
+            raise ValueError("Bonuses to use cannot be negative")
+        current = card.bonus_balance or Decimal("0.00")
+        if amount > current:
+            raise ValueError("Not enough bonuses")
+        return BonusDiscount(amount)
+
+    def apply_delivery_benefit(
+        self,
+        client_id: int,
+        strategy: DeliveryStrategy,
+    ) -> DeliveryStrategy:
+        """Apply loyalty delivery benefits to an already selected Strategy.
+
+        Active Gold cards make standard courier delivery free. Pickup is already
+        free and express delivery remains paid.
+        """
+        card = self.get_card_optional(client_id)
+        if (
+            card is not None
+            and card.is_active
+            and card.free_delivery
+            and strategy.name == "courier"
+        ):
+            return CourierDelivery(fee=Decimal("0.00"))
+        return strategy
 
     def delivery_strategy_for(
         self,
@@ -109,7 +190,11 @@ class LoyaltyService:
         if normalized_type == "pickup":
             return PickupDelivery()
         if normalized_type == "courier":
-            fee = Decimal("0.00") if card.is_active and card.free_delivery else Decimal("100.00")
+            fee = (
+                Decimal("0.00")
+                if card.is_active and card.free_delivery
+                else Decimal("100.00")
+            )
             return CourierDelivery(fee=fee)
         if normalized_type == "express":
             return ExpressDelivery()

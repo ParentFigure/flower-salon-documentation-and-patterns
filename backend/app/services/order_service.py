@@ -19,9 +19,10 @@ from app.patterns.state.order_state import (
     ReadyState,
 )
 from app.patterns.strategy.delivery import DeliveryCostCalculator, DeliveryStrategy
-from app.patterns.strategy.discount import DiscountCalculator, DiscountStrategy
+from app.patterns.strategy.discount import BonusDiscount, DiscountCalculator, DiscountStrategy
 from app.repositories.notification_repository import NotificationRepository
 from app.repositories.order_repository import OrderRepository
+from app.services.loyalty_service import LoyaltyService
 
 
 class OrderNotFoundError(LookupError):
@@ -47,10 +48,12 @@ class OrderService:
         repository: OrderRepository,
         notifications: NotificationPublisher | None = None,
         notification_repository: NotificationRepository | None = None,
+        loyalty_service: LoyaltyService | None = None,
     ) -> None:
         self.repository = repository
         self.notifications = notifications or NotificationPublisher()
         self.notification_repository = notification_repository
+        self.loyalty_service = loyalty_service
 
     def create_order(
         self,
@@ -97,7 +100,18 @@ class OrderService:
             pickup_salon_id=pickup_salon_id,
             delivery_address=normalized_address,
         )
-        return self.repository.create(order)
+        saved_order = self.repository.create(order)
+
+        # Bonus discounts use real loyalty balance rather than a client-provided
+        # arbitrary discount amount. Spend exactly the amount actually applied.
+        if (
+            self.loyalty_service is not None
+            and isinstance(discount_strategy, BonusDiscount)
+            and discount_amount > Decimal("0.00")
+        ):
+            self.loyalty_service.spend_bonus(client_id, discount_amount)
+
+        return saved_order
 
     def get_order(self, order_id: int) -> Order:
         order = self.repository.get_by_id(order_id)
@@ -125,10 +139,21 @@ class OrderService:
         return self._transition(order_id, "start_delivery")
 
     def complete_order(self, order_id: int) -> Order:
-        return self._transition(order_id, "complete")
+        order = self._transition(order_id, "complete")
+        self._accrue_completion_bonus(order)
+        return order
 
     def cancel_order(self, order_id: int) -> Order:
         return self._transition(order_id, "cancel")
+
+    def _accrue_completion_bonus(self, order: Order) -> None:
+        if self.loyalty_service is None:
+            return
+        self.loyalty_service.accrue_order_bonus(
+            order.client_id,
+            order.subtotal,
+            order.discount_amount,
+        )
 
     def _notify_order_ready(self, order: Order) -> None:
         persistent_observer = None

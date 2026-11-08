@@ -18,15 +18,12 @@ from app.patterns.strategy.delivery import (
     PickupDelivery,
 )
 from app.patterns.strategy.discount import (
-    BonusDiscount,
     DiscountStrategy,
     EventDiscount,
-    GoldDiscount,
-    NoDiscount,
-    SocialDiscount,
 )
 from app.repositories.bouquet_repository import BouquetRepository
 from app.repositories.delivery_method_repository import DeliveryMethodRepository
+from app.repositories.loyalty_card_repository import LoyaltyCardRepository
 from app.repositories.notification_repository import NotificationRepository
 from app.repositories.order_repository import OrderRepository
 from app.repositories.salon_repository import SalonRepository
@@ -43,6 +40,7 @@ from app.services.custom_bouquet_service import (
     CustomBouquetValidationError,
     InsufficientFlowerStockError,
 )
+from app.services.loyalty_service import LoyaltyCardNotFoundError, LoyaltyService
 from app.services.order_service import OrderNotFoundError, OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -74,6 +72,7 @@ def _configured_delivery_strategy(method: DeliveryMethod) -> DeliveryStrategy:
 def _resolve_delivery(
     payload: OrderCreate,
     db: Session,
+    loyalty_service: LoyaltyService,
 ) -> tuple[DeliveryStrategy, int | None, int | None]:
     method_id: int | None = None
     pickup_salon_id = payload.pickup_salon_id
@@ -119,18 +118,25 @@ def _resolve_delivery(
             detail="Pickup salon can only be selected for pickup delivery",
         )
 
+    strategy = loyalty_service.apply_delivery_benefit(payload.client_id, strategy)
     return strategy, method_id, pickup_salon_id
 
 
-def _discount_strategy(payload: OrderCreate) -> DiscountStrategy:
+def _discount_strategy(
+    payload: OrderCreate,
+    loyalty_service: LoyaltyService,
+) -> DiscountStrategy:
     percent = payload.discount_percent
 
-    if payload.discount_type == DiscountType.NONE:
-        return NoDiscount()
-    if payload.discount_type == DiscountType.GOLD:
-        return GoldDiscount(percent or Decimal("10.00"))
-    if payload.discount_type == DiscountType.SOCIAL:
-        return SocialDiscount(percent or Decimal("15.00"))
+    # Gold and Social discounts are derived from the persisted client card, not
+    # from a client-provided claim. NONE/GOLD/SOCIAL all resolve automatically.
+    if payload.discount_type in {
+        DiscountType.NONE,
+        DiscountType.GOLD,
+        DiscountType.SOCIAL,
+    }:
+        return loyalty_service.automatic_discount_strategy_for(payload.client_id)
+
     if payload.discount_type == DiscountType.EVENT:
         if not payload.event_name or not payload.event_name.strip():
             raise HTTPException(
@@ -141,13 +147,23 @@ def _discount_strategy(payload: OrderCreate) -> DiscountStrategy:
             payload.event_name,
             percent or Decimal("10.00"),
         )
+
     if payload.discount_type == DiscountType.BONUS:
         if payload.bonuses_to_use is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="bonuses_to_use is required for bonus discount",
             )
-        return BonusDiscount(payload.bonuses_to_use)
+        try:
+            return loyalty_service.bonus_discount_strategy_for(
+                payload.client_id,
+                payload.bonuses_to_use,
+            )
+        except (LoyaltyCardNotFoundError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
 
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
@@ -155,10 +171,22 @@ def _discount_strategy(payload: OrderCreate) -> DiscountStrategy:
     )
 
 
-def _order_service(db: Session) -> OrderService:
+def _loyalty_service(db: Session) -> LoyaltyService:
+    return LoyaltyService(
+        LoyaltyCardRepository(db),
+        notification_repository=NotificationRepository(db),
+    )
+
+
+def _order_service(
+    db: Session,
+    loyalty_service: LoyaltyService | None = None,
+) -> OrderService:
+    loyalty_service = loyalty_service or _loyalty_service(db)
     return OrderService(
         OrderRepository(db),
         notification_repository=NotificationRepository(db),
+        loyalty_service=loyalty_service,
     )
 
 
@@ -238,9 +266,10 @@ def create_order(
                 detail=str(exc),
             ) from exc
 
-    service = _order_service(db)
+    loyalty_service = _loyalty_service(db)
+    service = _order_service(db, loyalty_service)
     delivery_strategy, delivery_method_id, pickup_salon_id = _resolve_delivery(
-        payload, db
+        payload, db, loyalty_service
     )
 
     try:
@@ -248,7 +277,7 @@ def create_order(
             client_id=payload.client_id,
             items=items,
             delivery_strategy=delivery_strategy,
-            discount_strategy=_discount_strategy(payload),
+            discount_strategy=_discount_strategy(payload, loyalty_service),
             delivery_address=payload.delivery_address,
             delivery_method_id=delivery_method_id,
             pickup_salon_id=pickup_salon_id,

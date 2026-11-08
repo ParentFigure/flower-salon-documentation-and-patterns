@@ -12,7 +12,7 @@ from app.core.security import create_access_token
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Bouquet, Client, User, UserRole
+from app.models import Bouquet, Client, LoyaltyCard, LoyaltyCardType, User, UserRole
 
 
 def make_client() -> tuple[TestClient, sessionmaker]:
@@ -79,6 +79,23 @@ def seed_admin(TestingSessionLocal) -> int:
         return admin.id
 
 
+def seed_loyalty_card(
+    TestingSessionLocal,
+    client_id: int,
+    card_type: LoyaltyCardType,
+    bonus_balance: Decimal = Decimal("0.00"),
+) -> int:
+    with TestingSessionLocal() as db:
+        card = LoyaltyCard(
+            client_id=client_id,
+            card_type=card_type,
+            bonus_balance=bonus_balance,
+        )
+        db.add(card)
+        db.commit()
+        return card.id
+
+
 def headers_for(user_id: int, role: UserRole) -> dict[str, str]:
     token = create_access_token(user_id, role.value)
     return {"Authorization": f"Bearer {token}"}
@@ -107,6 +124,8 @@ def test_create_order_returns_201_and_calculated_totals():
     client_id, bouquet_id, user_id = seed_data(SessionLocal)
     headers = headers_for(user_id, UserRole.CLIENT)
 
+    seed_loyalty_card(SessionLocal, client_id, LoyaltyCardType.GOLD)
+
     with client:
         response = create_order(
             client,
@@ -115,7 +134,7 @@ def test_create_order_returns_201_and_calculated_totals():
             headers=headers,
             delivery_type="courier",
             delivery_address="Lviv, Green Street 5",
-            discount_type="gold",
+            discount_type="none",
         )
 
         assert response.status_code == 201
@@ -123,8 +142,8 @@ def test_create_order_returns_201_and_calculated_totals():
         assert data["status"] == "created"
         assert Decimal(str(data["subtotal"])) == Decimal("1000.00")
         assert Decimal(str(data["discount_amount"])) == Decimal("100.00")
-        assert Decimal(str(data["delivery_cost"])) == Decimal("100.00")
-        assert Decimal(str(data["total_price"])) == Decimal("1000.00")
+        assert Decimal(str(data["delivery_cost"])) == Decimal("0.00")
+        assert Decimal(str(data["total_price"])) == Decimal("900.00")
         assert data["items"][0]["quantity"] == 2
 
     app.dependency_overrides.clear()
@@ -337,5 +356,74 @@ def test_client_cannot_change_order_status():
         )
         assert response.status_code == 403
         assert response.json()["detail"] == "Administrator role required"
+
+    app.dependency_overrides.clear()
+
+
+def test_client_cannot_fake_gold_discount_without_gold_card():
+    client, SessionLocal = make_client()
+    client_id, bouquet_id, user_id = seed_data(SessionLocal, "fake-gold")
+
+    with client:
+        response = create_order(
+            client,
+            client_id,
+            bouquet_id,
+            headers=headers_for(user_id, UserRole.CLIENT),
+            discount_type="gold",
+        )
+
+        assert response.status_code == 201
+        assert Decimal(str(response.json()["discount_amount"])) == Decimal("0.00")
+
+    app.dependency_overrides.clear()
+
+
+def test_social_discount_is_applied_automatically():
+    client, SessionLocal = make_client()
+    client_id, bouquet_id, user_id = seed_data(SessionLocal, "social-auto")
+    seed_loyalty_card(SessionLocal, client_id, LoyaltyCardType.SOCIAL)
+
+    with client:
+        response = create_order(
+            client,
+            client_id,
+            bouquet_id,
+            headers=headers_for(user_id, UserRole.CLIENT),
+        )
+
+        assert response.status_code == 201
+        assert Decimal(str(response.json()["subtotal"])) == Decimal("1000.00")
+        assert Decimal(str(response.json()["discount_amount"])) == Decimal("150.00")
+        assert Decimal(str(response.json()["total_price"])) == Decimal("850.00")
+
+    app.dependency_overrides.clear()
+
+
+def test_bonus_discount_spends_real_bonus_balance():
+    client, SessionLocal = make_client()
+    client_id, bouquet_id, user_id = seed_data(SessionLocal, "bonus-spend")
+    seed_loyalty_card(
+        SessionLocal,
+        client_id,
+        LoyaltyCardType.BONUS,
+        Decimal("200.00"),
+    )
+
+    with client:
+        response = create_order(
+            client,
+            client_id,
+            bouquet_id,
+            headers=headers_for(user_id, UserRole.CLIENT),
+            discount_type="bonus",
+            bonuses_to_use="125.00",
+        )
+        assert response.status_code == 201
+        assert Decimal(str(response.json()["discount_amount"])) == Decimal("125.00")
+
+    with SessionLocal() as db:
+        card = db.query(LoyaltyCard).filter_by(client_id=client_id).one()
+        assert card.bonus_balance == Decimal("75.00")
 
     app.dependency_overrides.clear()
