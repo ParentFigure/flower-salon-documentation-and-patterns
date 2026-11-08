@@ -96,3 +96,21 @@ button, input { font: inherit; }
   .catalog-count { align-self: flex-start; min-width: 104px; }
   .bouquet-grid { grid-template-columns: 1fr; }
 }
+
+/* Authentication */
+.auth-heading { margin-bottom: 24px; }
+.auth-heading h1 { margin-bottom: 14px; }
+.auth-heading .muted { margin: 0; }
+.auth-card--wide { width: min(680px, 100%); }
+.auth-switch { text-align: center; margin: 22px 0 0; }
+.auth-switch a { color: #344d38; font-weight: 800; }
+.auth-submit { width: 100%; margin-top: 2px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.optional-label { color: #8a8f87; font-size: .75rem; font-weight: 600; }
+.form-hint { margin: -4px 0 0; color: #777d74; font-size: .84rem; line-height: 1.5; }
+.form-alert { margin: 0; border: 1px solid #e1bcbc; border-radius: 12px; padding: 11px 13px; background: #fff4f3; color: #963e3e; line-height: 1.45; }
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 92px; }
+.password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: #526852; font-size: .78rem; font-weight: 800; cursor: pointer; padding: 7px 6px; }
+.password-toggle:hover { color: #263b2a; }
+@media (max-width: 620px) { .form-grid { grid-template-columns: 1fr; } }

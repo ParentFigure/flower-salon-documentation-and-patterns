@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { api, getAccessToken, setAccessToken } from "../api/client";
+import { getCurrentUser, loginUser, registerClient } from "../api/auth";
+import { getAccessToken, setAccessToken } from "../api/client";
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,7 @@ export function AuthProvider({ children }) {
 
     setLoading(true);
     try {
-      const currentUser = await api.get("/api/auth/me");
+      const currentUser = await getCurrentUser();
       setUser(currentUser);
       return currentUser;
     } catch {
@@ -33,10 +34,21 @@ export function AuthProvider({ children }) {
   }, [refreshUser]);
 
   const login = useCallback(async (email, password) => {
-    const result = await api.post("/api/auth/login", { email, password });
+    const result = await loginUser(email, password);
     setAccessToken(result.access_token);
-    return refreshUser();
+    const currentUser = await refreshUser();
+
+    if (!currentUser) {
+      throw new Error("Сесію не вдалося підтвердити. Спробуйте увійти ще раз.");
+    }
+
+    return currentUser;
   }, [refreshUser]);
+
+  const register = useCallback(async (form) => {
+    await registerClient(form);
+    return login(form.email, form.password);
+  }, [login]);
 
   const logout = useCallback(() => {
     setAccessToken(null);
@@ -48,13 +60,14 @@ export function AuthProvider({ children }) {
       user,
       loading,
       login,
+      register,
       logout,
       refreshUser,
       isAuthenticated: Boolean(user),
       isAdmin: user?.role === "ADMIN",
       isClient: user?.role === "CLIENT",
     }),
-    [user, loading, login, logout, refreshUser],
+    [user, loading, login, register, logout, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

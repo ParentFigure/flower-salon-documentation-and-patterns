@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 function navClass({ isActive }) {
@@ -7,6 +7,12 @@ function navClass({ isActive }) {
 
 export default function Layout() {
   const { user, isAdmin, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate("/", { replace: true });
+  }
 
   return (
     <div className="app-shell">
@@ -22,7 +28,7 @@ export default function Layout() {
               <NavLink className="button small" to="/register">Реєстрація</NavLink>
             </>
           ) : (
-            <button className="button ghost small" type="button" onClick={logout}>
+            <button className="button ghost small" type="button" onClick={handleLogout}>
               Вийти
             </button>
           )}
