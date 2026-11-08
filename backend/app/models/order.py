@@ -78,6 +78,8 @@ class Order(Base):
             (item.line_total for item in self.items),
             start=Decimal("0.00"),
         )
-        payable = self.subtotal - self.discount_amount + self.delivery_cost
+        discount_amount = self.discount_amount or Decimal("0.00")
+        delivery_cost = self.delivery_cost or Decimal("0.00")
+        payable = self.subtotal - discount_amount + delivery_cost
         self.total_price = max(payable, Decimal("0.00"))
         return self.total_price
