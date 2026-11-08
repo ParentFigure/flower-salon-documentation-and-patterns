@@ -2,9 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.order import OrderStatus
+from app.schemas.custom_bouquet import CustomBouquetCreate
 
 
 class DeliveryType(str, Enum):
@@ -22,8 +23,20 @@ class DiscountType(str, Enum):
 
 
 class OrderItemCreate(BaseModel):
-    bouquet_id: int = Field(gt=0)
+    bouquet_id: int | None = Field(default=None, gt=0)
+    custom_bouquet: CustomBouquetCreate | None = None
     quantity: int = Field(gt=0, le=100)
+
+    @model_validator(mode="after")
+    def validate_item_source(self):
+        has_catalog_bouquet = self.bouquet_id is not None
+        has_custom_bouquet = self.custom_bouquet is not None
+
+        if has_catalog_bouquet == has_custom_bouquet:
+            raise ValueError(
+                "Exactly one of bouquet_id or custom_bouquet must be provided"
+            )
+        return self
 
 
 class OrderCreate(BaseModel):
@@ -56,10 +69,14 @@ class OrderStatusUpdate(BaseModel):
 
 class OrderItemRead(BaseModel):
     id: int
-    bouquet_id: int
+    bouquet_id: int | None
     quantity: int
     unit_price: Decimal
     line_total: Decimal
+    item_name: str | None
+    item_description: str | None
+    is_custom: bool
+    customization: dict | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +94,7 @@ class OrderRead(BaseModel):
     pickup_salon_id: int | None
     delivery_address: str | None
     created_at: datetime
+    updated_at: datetime
     items: list[OrderItemRead]
 
     model_config = ConfigDict(from_attributes=True)

@@ -37,6 +37,12 @@ from app.schemas.order import (
     OrderRead,
     OrderStatusUpdate,
 )
+from app.services.custom_bouquet_service import (
+    CustomBouquetResourceNotFoundError,
+    CustomBouquetService,
+    CustomBouquetValidationError,
+    InsufficientFlowerStockError,
+)
 from app.services.order_service import OrderNotFoundError, OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -171,23 +177,66 @@ def create_order(
         )
 
     bouquet_repository = BouquetRepository(db)
+    custom_bouquet_service = CustomBouquetService(db)
     items: list[OrderItem] = []
 
     for requested_item in payload.items:
-        bouquet = bouquet_repository.get_by_id(requested_item.bouquet_id)
-        if bouquet is None:
+        if requested_item.bouquet_id is not None:
+            bouquet = bouquet_repository.get_by_id(requested_item.bouquet_id)
+            if bouquet is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Bouquet #{requested_item.bouquet_id} not found",
+                )
+
+            items.append(
+                OrderItem(
+                    bouquet_id=bouquet.id,
+                    quantity=requested_item.quantity,
+                    unit_price=bouquet.base_price,
+                    item_name=bouquet.name,
+                    item_description=bouquet.description,
+                    is_custom=False,
+                )
+            )
+            continue
+
+        custom = requested_item.custom_bouquet
+        if custom is None:  # Pydantic validator should make this unreachable.
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Bouquet #{requested_item.bouquet_id} not found",
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Custom bouquet data is required",
             )
 
-        items.append(
-            OrderItem(
-                bouquet_id=bouquet.id,
-                quantity=requested_item.quantity,
-                unit_price=bouquet.base_price,
+        try:
+            items.append(
+                custom_bouquet_service.build_order_item(
+                    name=custom.name,
+                    flowers=[
+                        (flower.flower_id, flower.quantity)
+                        for flower in custom.flowers
+                    ],
+                    order_quantity=requested_item.quantity,
+                    packaging_id=custom.packaging_id,
+                    greeting_card_text=custom.greeting_card_text,
+                    occasion_ids=custom.occasion_ids,
+                )
             )
-        )
+        except CustomBouquetResourceNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=str(exc),
+            ) from exc
+        except CustomBouquetValidationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(exc),
+            ) from exc
+        except InsufficientFlowerStockError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=str(exc),
+            ) from exc
 
     service = _order_service(db)
     delivery_strategy, delivery_method_id, pickup_salon_id = _resolve_delivery(

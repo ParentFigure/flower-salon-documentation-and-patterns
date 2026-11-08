@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.bouquet import Bouquet
 from app.models.flower import Flower
+from app.models.order_item import OrderItem
 from app.patterns.builder import CustomBouquetBuilder
 from app.repositories.flower_repository import FlowerRepository
 from app.repositories.occasion_repository import OccasionRepository
@@ -146,4 +147,83 @@ class CustomBouquetService:
             greeting_card_text=normalized_card_text,
             greeting_card_price=greeting_card_price,
             occasion_ids=normalized_occasion_ids,
+        )
+
+    def build_order_item(
+        self,
+        *,
+        name: str,
+        flowers: list[tuple[int, int]],
+        order_quantity: int,
+        packaging_id: int | None = None,
+        greeting_card_text: str | None = None,
+        occasion_ids: list[int] | None = None,
+    ) -> OrderItem:
+        """Build a persistent order-item snapshot without publishing it to catalog."""
+        if order_quantity <= 0:
+            raise CustomBouquetValidationError(
+                "Order item quantity must be greater than zero"
+            )
+
+        preview = self.preview(
+            name=name,
+            flowers=flowers,
+            packaging_id=packaging_id,
+            greeting_card_text=greeting_card_text,
+            occasion_ids=occasion_ids,
+        )
+
+        # Preview validates one bouquet. Ordering several identical custom bouquets
+        # must also fit the currently available stock.
+        for flower in preview.flowers:
+            requested_total = flower.quantity * order_quantity
+            current = self.flower_repository.get_by_id(flower.flower_id)
+            if current is None:
+                raise CustomBouquetResourceNotFoundError(
+                    f"Flower not found: {flower.flower_id}"
+                )
+            if requested_total > current.stock_qty:
+                raise InsufficientFlowerStockError(
+                    f"Not enough {current.name} in stock: requested {requested_total}, "
+                    f"available {current.stock_qty}"
+                )
+
+        customization = {
+            "flowers": [
+                {
+                    "flower_id": flower.flower_id,
+                    "flower_name": flower.flower_name,
+                    "quantity": flower.quantity,
+                    "unit_price": str(flower.unit_price),
+                }
+                for flower in preview.flowers
+            ],
+            "packaging": (
+                {
+                    "id": preview.packaging_id,
+                    "name": preview.packaging_name,
+                    "price": str(preview.packaging_price),
+                }
+                if preview.packaging_id is not None
+                else None
+            ),
+            "greeting_card": (
+                {
+                    "text": preview.greeting_card_text,
+                    "price": str(preview.greeting_card_price),
+                }
+                if preview.greeting_card_text is not None
+                else None
+            ),
+            "occasion_ids": preview.occasion_ids,
+        }
+
+        return OrderItem(
+            bouquet_id=None,
+            quantity=order_quantity,
+            unit_price=preview.bouquet.base_price,
+            item_name=preview.bouquet.name,
+            item_description=preview.bouquet.description,
+            is_custom=True,
+            customization=customization,
         )
