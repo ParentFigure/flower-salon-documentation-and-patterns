@@ -100,7 +100,7 @@ export default function AdminLoyaltyManager({ orders }) {
       <div className="admin-form">
         <div className="admin-section-heading">
           <div>
-            <p className="admin-kicker">Loyalty</p>
+            <p className="admin-kicker">Програма лояльності</p>
             <h3>Картка клієнта</h3>
           </div>
         </div>
@@ -169,7 +169,7 @@ export default function AdminLoyaltyManager({ orders }) {
             </div>
           </article>
         ) : (
-          <div className="admin-empty">Вкажи ID клієнта й завантаж або видай loyalty-картку.</div>
+          <div className="admin-empty">Введіть ID клієнта та завантажте або видайте картку лояльності.</div>
         )}
       </div>
     </div>

@@ -208,10 +208,10 @@ export default function CustomBouquetPage() {
     <section className="page-section builder-page">
       <div className="builder-hero">
         <div>
-          <p className="eyebrow">Custom bouquet · Builder pattern</p>
+          <p className="eyebrow">Конструктор букета</p>
           <h1>Збери свій букет</h1>
           <p className="muted builder-intro">
-            Обери квіти, упаковку та подію. Остаточну ціну перевіряє FastAPI за актуальними цінами й залишками в базі.
+            Оберіть квіти, упаковку та подію. Після перевірки буде показано остаточну вартість композиції.
           </p>
         </div>
         <div className="builder-price-badge">
@@ -400,7 +400,7 @@ export default function CustomBouquetPage() {
             </div>
 
             <div className="builder-summary-total">
-              <span>{preview ? "Підтверджено сервером" : "Орієнтовна сума"}</span>
+              <span>{preview ? "Остаточна сума" : "Орієнтовна сума"}</span>
               <strong>{formatMoney(preview?.total_price ?? estimatedTotal)}</strong>
             </div>
 
@@ -410,7 +410,7 @@ export default function CustomBouquetPage() {
               <div className="builder-preview-success" role="status">
                 <strong>✓ Букет перевірено</strong>
                 <span>
-                  Доступність квітів і точну ціну підтверджено backend-ом.
+                  Композиція доступна для замовлення. Остаточну вартість розраховано.
                 </span>
                 {preview.packaging_name && <small>Упаковка: {preview.packaging_name}</small>}
                 {preview.greeting_card_text && <small>Листівка: {formatMoney(preview.greeting_card_price)}</small>}
@@ -426,7 +426,7 @@ export default function CustomBouquetPage() {
               </button>
             )}
             <p className="builder-server-note">
-              Ціна справа до перевірки — орієнтовна. Для замовлення використовується лише сума, яку повернув сервер.
+              До підтвердження вартість композиції є орієнтовною.
             </p>
           </div>
         </aside>

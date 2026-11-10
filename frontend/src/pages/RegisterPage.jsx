@@ -147,7 +147,7 @@ export default function RegisterPage() {
           </label>
         </div>
 
-        <p className="form-hint">Мінімум 8 символів. Пароль передається лише через API та зберігається на сервері як хеш.</p>
+        <p className="form-hint">Мінімум 8 символів.</p>
 
         {error && <p className="form-alert" role="alert">{error}</p>}
 

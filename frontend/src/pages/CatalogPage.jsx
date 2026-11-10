@@ -57,7 +57,6 @@ export default function CatalogPage() {
           <h1>Букети для ваших моментів</h1>
           <p className="muted catalog-intro">
             Оберіть готову композицію або відфільтруйте букети за подією.
-            Склад і ціна завантажуються напряму з FastAPI.
           </p>
         </div>
         <div className="catalog-count" aria-live="polite">

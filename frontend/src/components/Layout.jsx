@@ -38,7 +38,7 @@ export default function Layout() {
       <main className="site-main">
         <Outlet />
       </main>
-      <footer className="site-footer">Flower Salon Network · course project</footer>
+      <footer className="site-footer">Bloom Network · мережа квіткових салонів</footer>
     </div>
   );
 }

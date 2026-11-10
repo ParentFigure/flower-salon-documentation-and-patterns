@@ -190,9 +190,9 @@ export default function CheckoutPage() {
     <section className="page-section checkout-page">
       <div className="checkout-hero">
         <div>
-          <p className="eyebrow">Checkout</p>
+          <p className="eyebrow">Замовлення</p>
           <h1>Оформлення замовлення</h1>
-          <p className="muted">Обери спосіб отримання. Знижки Gold/Social backend застосує автоматично.</p>
+          <p className="muted">Оберіть спосіб отримання. Доступні переваги програми лояльності застосуються автоматично.</p>
         </div>
       </div>
 
@@ -240,7 +240,7 @@ export default function CheckoutPage() {
                 <span className="builder-step">02</span>
                 <div>
                   <h2>Спосіб отримання</h2>
-                  <p className="muted">Вартість береться з налаштувань доставки у базі.</p>
+                  <p className="muted">Вартість залежить від обраного способу отримання.</p>
                 </div>
               </div>
 
@@ -306,7 +306,7 @@ export default function CheckoutPage() {
                 <strong>{money(estimatedTotal)}</strong>
               </div>
               <p className="checkout-note">
-                Остаточна сума повертається backend-ом після автоматичного застосування loyalty-знижки та переваг доставки.
+                Остаточна сума врахує доступні знижки та умови обраної доставки.
               </p>
               {error && <p className="form-alert" role="alert">{error}</p>}
               <button className="button checkout-submit" type="submit" disabled={submitting || !selectedMethod}>

@@ -499,7 +499,7 @@ export default function AdminPage() {
         <div>
           <p className="eyebrow">Адмін-панель</p>
           <h1>Керування мережею</h1>
-          <p className="muted">Каталог, налаштування мережі, loyalty та життєвий цикл замовлень в одному місці.</p>
+          <p className="muted">Каталог, налаштування мережі, програма лояльності та життєвий цикл замовлень в одному місці.</p>
         </div>
         <div className="admin-stat-grid">
           <div><strong>{stats.activeOrders}</strong><span>активних замовлень</span></div>
@@ -518,7 +518,7 @@ export default function AdminPage() {
         <button className={activeTab === "occasions" ? "active" : ""} onClick={() => setActiveTab("occasions")} type="button">Події <span>{occasions.length}</span></button>
         <button className={activeTab === "salons" ? "active" : ""} onClick={() => setActiveTab("salons")} type="button">Салони <span>{salons.length}</span></button>
         <button className={activeTab === "delivery" ? "active" : ""} onClick={() => setActiveTab("delivery")} type="button">Доставка <span>{deliveryMethods.length}</span></button>
-        <button className={activeTab === "loyalty" ? "active" : ""} onClick={() => setActiveTab("loyalty")} type="button">Loyalty</button>
+        <button className={activeTab === "loyalty" ? "active" : ""} onClick={() => setActiveTab("loyalty")} type="button">Лояльність</button>
       </div>
 
       <div className="admin-panel">
